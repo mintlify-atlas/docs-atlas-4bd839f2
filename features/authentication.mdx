@@ -1,0 +1,337 @@
+---
+title: Authentication System
+description: Laravel Sanctum-based authentication with email verification and two-factor authentication
+---
+
+EduStack Smart implements a comprehensive authentication system using Laravel Sanctum for stateless API authentication with support for SPA (Single Page Application) workflows.
+
+## Overview
+
+The authentication system provides:
+
+- **Session-based authentication** for web applications
+- **Token-based authentication** for API access
+- **Email verification** for new user accounts
+- **Two-factor authentication (2FA)** for enhanced security
+- **Password reset** functionality
+- **Account status management** (active/inactive users)
+
+## Technology Stack
+
+- **Laravel Sanctum** - SPA authentication
+- **Laravel Fortify** - Two-factor authentication features
+- **Inertia.js** - Seamless SPA routing
+- **React** - Frontend UI components
+
+## Authentication Flow
+
+### User Registration
+
+New users register through a multi-step process that captures essential information:
+
+```php
+// app/Http/Controllers/Auth/RegisteredUserController.php
+public function store(Request $request): RedirectResponse
+{
+    $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'father_last_name' => ['required', 'string', 'max:255'],
+        'mother_last_name' => ['required', 'string', 'max:255'],
+        'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+        'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        'role' => ['required', 'integer', 'between:1,3'],
+    ]);
+
+    $role = match($request->integer('role')) {
+        1 => 'guest',
+        2 => 'student',
+        3 => 'teacher',
+        default => 'guest',
+    };
+
+    $user = User::create([
+        'name' => $request->name,
+        'father_last_name' => $request->father_last_name,
+        'mother_last_name' => $request->mother_last_name,
+        'email' => $request->email,
+        'password' => Hash::make($request->password),
+    ]);
+
+    $user->assignRole($role);
+    event(new Registered($user));
+    Auth::login($user);
+
+    return redirect()->intended(route('dashboard'));
+}
+```
+
+**Registration Fields:**
+
+- Full name (name, father_last_name, mother_last_name)
+- Email address (unique)
+- Password (with confirmation)
+- Initial role selection (Guest, Student, or Teacher)
+
+### User Login
+
+The login process supports standard credentials with optional two-factor authentication:
+
+```php
+// app/Http/Controllers/Auth/AuthenticatedSessionController.php
+public function store(LoginRequest $request): RedirectResponse
+{
+    $user = $request->validateCredentials();
+
+    if (Features::enabled(Features::twoFactorAuthentication()) && 
+        $user->hasEnabledTwoFactorAuthentication()) {
+        $request->session()->put([
+            'login.id' => $user->getKey(),
+            'login.remember' => $request->boolean('remember'),
+        ]);
+
+        return to_route('two-factor.login');
+    }
+
+    Auth::login($user, $request->boolean('remember'));
+    $request->session()->regenerate();
+
+    return redirect()->intended(route('dashboard'));
+}
+```
+
+**Login Features:**
+
+- Email and password validation
+- "Remember me" functionality
+- Automatic 2FA challenge when enabled
+- Session regeneration for security
+- Account status verification
+
+### Email Verification
+
+All new users must verify their email address before accessing protected features:
+
+```php
+// app/Models/User.php
+class User extends Authenticatable implements MustVerifyEmail
+{
+    use HasFactory, Notifiable, TwoFactorAuthenticatable, HasApiTokens, HasRoles;
+}
+```
+
+```php
+// app/Http/Controllers/Auth/VerifyEmailController.php
+public function __invoke(EmailVerificationRequest $request): RedirectResponse
+{
+    if ($request->user()->hasVerifiedEmail()) {
+        return redirect()->intended(route('dashboard').'?verified=1');
+    }
+
+    $request->fulfill();
+    return redirect()->intended(route('dashboard').'?verified=1');
+}
+```
+
+**Verification Workflow:**
+
+1. User registers and receives verification email
+2. Email contains signed verification link
+3. User clicks link to verify email address
+4. System marks email as verified and grants full access
+
+## Two-Factor Authentication (2FA)
+
+EduStack Smart supports TOTP-based two-factor authentication for enhanced account security.
+
+### Enabling 2FA
+
+```php
+// app/Http/Controllers/Settings/TwoFactorAuthenticationController.php
+public function show(TwoFactorAuthenticationRequest $request): Response
+{
+    $request->ensureStateIsValid();
+
+    return Inertia::render('settings/two-factor', [
+        'twoFactorEnabled' => $request->user()->hasEnabledTwoFactorAuthentication(),
+        'requiresConfirmation' => Features::optionEnabled(
+            Features::twoFactorAuthentication(), 
+            'confirm'
+        ),
+    ]);
+}
+```
+
+**2FA Features:**
+
+- QR code generation for authenticator apps
+- Recovery codes for account recovery
+- Optional password confirmation before setup
+- Seamless integration with login flow
+
+### User Model Configuration
+
+The User model includes all authentication traits:
+
+```php
+// app/Models/User.php
+use Laravel\Fortify\TwoFactorAuthenticatable;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable implements MustVerifyEmail
+{
+    use HasFactory, Notifiable, TwoFactorAuthenticatable, HasApiTokens, HasRoles;
+
+    protected $fillable = [
+        'name',
+        'father_last_name',
+        'mother_last_name',
+        'email',
+        'password',
+        'is_active',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'two_factor_confirmed_at',
+        'two_factor_recovery_codes',
+        'two_factor_secret',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'is_active' => 'boolean',
+        ];
+    }
+}
+```
+
+## Account Status Management
+
+The system includes active/inactive account status to control user access:
+
+```php
+// app/Models/User.php
+public function isActive(): bool
+{
+    return $this->is_active;
+}
+```
+
+Inactive users are redirected to a special page and cannot access protected routes until an administrator activates their account.
+
+## Laravel Sanctum Configuration
+
+Sanctum is configured for stateful SPA authentication:
+
+```php
+// config/sanctum.php
+return [
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
+        '%s%s',
+        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
+        Sanctum::currentApplicationUrlWithPort(),
+    ))),
+
+    'guard' => ['web'],
+    'expiration' => null,
+
+    'middleware' => [
+        'authenticate_session' => Laravel\Sanctum\Http\Middleware\AuthenticateSession::class,
+        'encrypt_cookies' => Illuminate\Cookie\Middleware\EncryptCookies::class,
+        'validate_csrf_token' => Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    ],
+];
+```
+
+## Frontend Authentication Pages
+
+The authentication UI is built with React and Inertia.js:
+
+### Login Page
+
+```tsx
+// resources/js/pages/auth/login.tsx
+export default function Login({ status, canResetPassword }: LoginProps) {
+    const handleLogin: SubmitHandler<LoginAuthForm> = (data) => {
+        router.post(AuthenticatedSessionController.store(), data, {
+            forceFormData: false,
+            preserveScroll: true,
+            onError(error) {
+                Object.values(error).forEach(value => toast.error(value))
+            }
+        })
+    }
+
+    return (
+        <AuthLayout title="Iniciar Sesión">
+            <form onSubmit={handleSubmit(handleLogin)}>
+                {/* Email and password fields */}
+                {/* Remember me checkbox */}
+                {/* Submit button */}
+            </form>
+        </AuthLayout>
+    );
+}
+```
+
+### Register Page
+
+```tsx
+// resources/js/pages/auth/register.tsx
+export default function Register() {
+    const handleRegister: SubmitHandler<RegisterAuthForm> = (data) => {
+        router.post(RegisteredUserController.store(), data, {
+            onError(error) {
+                Object.values(error).forEach(value => toast.error(value))
+            }
+        })
+    }
+
+    return (
+        <AuthLayout title="Crear Cuenta">
+            <form onSubmit={handleSubmit(handleRegister)}>
+                {/* Name fields */}
+                {/* Email field */}
+                {/* Role selector */}
+                {/* Password fields */}
+            </form>
+        </AuthLayout>
+    );
+}
+```
+
+## Middleware Protection
+
+All authenticated routes are protected with middleware:
+
+```php
+Route::middleware(['auth', 'verified', 'active'])->group(function () {
+    // Protected routes
+});
+```
+
+**Middleware Stack:**
+
+- `auth` - Ensures user is authenticated
+- `verified` - Requires email verification
+- `active` - Checks account status
+- `role:*` - Role-based access control
+
+## Security Features
+
+- **Password hashing** with bcrypt
+- **CSRF protection** on all state-changing requests
+- **Session regeneration** after login
+- **Rate limiting** on authentication endpoints
+- **Secure password reset** with signed URLs
+- **Token encryption** for API access
+
+## Related Documentation
+
+- [Role-Based Access Control](/features/rbac)
+- [Administrator Guide](/guides/admin)
+- [API Authentication](/api/authentication)

@@ -1,0 +1,428 @@
+---
+title: Role-Based Access Control
+description: Comprehensive RBAC system with 5 user roles, permissions, and policies
+---
+
+EduStack Smart implements a granular Role-Based Access Control (RBAC) system using Spatie Laravel Permission to manage user access across the platform.
+
+## Overview
+
+The RBAC system provides:
+
+- **5 distinct user roles** with hierarchical permissions
+- **Permission-based access control** for features
+- **Route-level protection** via middleware
+- **Model policies** for resource authorization
+- **Dynamic role assignment** by administrators
+
+## Technology Stack
+
+- **Spatie Laravel Permission** - Role and permission management
+- **Laravel Policies** - Resource authorization
+- **Custom Middleware** - Route protection
+- **Role-based routing** - Organized route files
+
+## User Roles
+
+The system defines 5 roles with increasing levels of access:
+
+### 1. Guest (Visitor)
+
+**Access Level:** Minimal
+
+- Can browse public content
+- Can view published projects, posts, and events
+- Cannot create or manage content
+- Requires email verification
+
+```php
+// Database seeder
+Role::create(['name' => 'guest']);
+```
+
+**Route Configuration:**
+
+```php
+// routes/roles/guest.php
+Route::middleware(['auth', 'verified', 'role:guest|admin'])->group(function () {
+    // Guest-specific routes
+});
+```
+
+### 2. Student
+
+**Access Level:** Project Participation
+
+**Permissions:**
+- `projects` - Can create and manage own projects
+
+**Capabilities:**
+- Create personal projects
+- Collaborate on other projects
+- Upload project screenshots
+- Manage project versions
+- View all public content
+
+```php
+// Database seeder
+$student = Role::create(['name' => 'student']);
+$student->givePermissionTo('projects');
+```
+
+**Route Configuration:**
+
+```php
+// routes/roles/student.php
+Route::middleware([
+    'auth',
+    'verified',
+    'active',
+    'role:student|admin|member|teacher'
+])->group(function () {
+    Route::resource('projects', ProjectController::class);
+    Route::patch('projects/{project}/status', ProjectStatusController::class);
+    // Additional project routes
+});
+```
+
+### 3. Teacher
+
+**Access Level:** Content Creation + Projects
+
+**Permissions:**
+- `posts` - Can create and manage blog posts
+- `projects` - Can create and manage projects
+
+**Capabilities:**
+- All Student capabilities
+- Create and publish blog posts
+- Manage post categories
+- Upload media galleries
+- Classroom management (future module)
+
+```php
+// Database seeder
+$teacher = Role::create(['name' => 'teacher']);
+$teacher->givePermissionTo('posts');
+$teacher->givePermissionTo('projects');
+```
+
+**Route Configuration:**
+
+```php
+// routes/roles/teacher.php
+Route::middleware([
+    'auth',
+    'verified',
+    'active',
+    'role:teacher|admin|member'
+])->group(function () {
+    Route::resource('posts', BlogController::class);
+    Route::patch('posts/{post}/status', PostStatusController::class);
+    // Additional post routes
+});
+```
+
+### 4. Member
+
+**Access Level:** Full Content Management
+
+**Permissions:**
+- `posts` - Blog post management
+- `events` - Event management
+- `projects` - Project management
+
+**Capabilities:**
+- All Teacher capabilities
+- Create and manage events
+- Manage event activities
+- Handle event registrations
+- Create competitions
+- Manage event teams
+
+```php
+// Database seeder
+$member = Role::create(['name' => 'member']);
+$member->givePermissionTo('posts');
+$member->givePermissionTo('events');
+$member->givePermissionTo('projects');
+```
+
+**Route Configuration:**
+
+```php
+// routes/roles/member.php
+Route::middleware([
+    'auth',
+    'verified',
+    'active',
+    'role:member|admin'
+])->group(function () {
+    Route::resource('events', EventController::class);
+    Route::resource('posts', BlogController::class);
+    Route::patch('events/{event}/status', EventStatusController::class);
+    Route::patch('posts/{post}/status', PostStatusController::class);
+});
+```
+
+### 5. Admin
+
+**Access Level:** Full System Control
+
+**Permissions:**
+- All permissions (`events`, `posts`, `projects`, `users`)
+
+**Capabilities:**
+- All Member capabilities
+- User management (activate/deactivate accounts)
+- Role assignment and modification
+- System configuration
+- Access to admin panel
+- Override all permissions
+
+```php
+// Database seeder
+$admin = Role::create(['name' => 'admin']);
+$admin->givePermissionTo(Permission::all());
+```
+
+**Route Configuration:**
+
+```php
+// routes/roles/admin.php
+Route::middleware([
+    'auth',
+    'verified',
+    'active',
+    'role:admin'
+])->group(function () {
+    Route::get('admin/users', AdminUsersController::class)
+        ->name('admin.users.index');
+    Route::patch('admin/users/{user}/status', AdminUserStatusController::class)
+        ->name('admin.users.status');
+    Route::patch('admin/users/{user}/role', AdminUserRoleController::class)
+        ->name('admin.users.role');
+});
+```
+
+## Permission System
+
+The platform defines 4 core permissions:
+
+```php
+// database/seeders/RoleSeeder.php
+public function run(): void
+{
+    Permission::create(['name' => 'events']);
+    Permission::create(['name' => 'posts']);
+    Permission::create(['name' => 'projects']);
+    Permission::create(['name' => 'users']);
+
+    // Role assignments...
+}
+```
+
+### Permission Matrix
+
+| Permission | Guest | Student | Teacher | Member | Admin |
+|------------|-------|---------|---------|--------|-------|
+| `projects` | ❌    | ✅      | ✅      | ✅     | ✅    |
+| `posts`    | ❌    | ❌      | ✅      | ✅     | ✅    |
+| `events`   | ❌    | ❌      | ❌      | ✅     | ✅    |
+| `users`    | ❌    | ❌      | ❌      | ❌     | ✅    |
+
+## User Model Integration
+
+The User model integrates Spatie's HasRoles trait:
+
+```php
+// app/Models/User.php
+use Spatie\Permission\Traits\HasRoles;
+
+class User extends Authenticatable implements MustVerifyEmail
+{
+    use HasFactory, Notifiable, TwoFactorAuthenticatable, HasApiTokens, HasRoles;
+
+    // User relationships
+    public function posts()
+    {
+        return $this->hasMany(Post::class);
+    }
+
+    public function events()
+    {
+        return $this->hasMany(Event::class);
+    }
+
+    public function projects()
+    {
+        return $this->hasMany(Project::class);
+    }
+
+    public function projectsCollaborations()
+    {
+        return $this->belongsToMany(Project::class, 'project_collaborators')
+            ->withPivot('id');
+    }
+}
+```
+
+## Middleware Protection
+
+Routes are protected using role-based middleware:
+
+### Single Role
+
+```php
+Route::middleware(['auth', 'verified', 'active', 'role:admin'])
+    ->group(function () {
+        // Admin-only routes
+    });
+```
+
+### Multiple Roles (OR)
+
+```php
+Route::middleware(['auth', 'verified', 'active', 'role:teacher|admin|member'])
+    ->group(function () {
+        // Accessible by teachers, members, or admins
+    });
+```
+
+### Middleware Stack Explanation
+
+- **`auth`** - Ensures user is authenticated
+- **`verified`** - Requires verified email address
+- **`active`** - Checks if account is active (not suspended)
+- **`role:*`** - Validates user has required role
+
+## Resource Authorization
+
+While the codebase doesn't show explicit Policy files, authorization is implemented through:
+
+### Owner-based Queries
+
+Controllers automatically scope resources to the authenticated user:
+
+```php
+// app/Http/Controllers/User/Project/ProjectController.php
+public function index(Request $request)
+{
+    $projects = $request->user()
+        ->projects() // Only user's own projects
+        ->when($search, fn($query, $search) => 
+            $query->where('name', 'like', "%{$search}%")
+        )
+        ->with(['media'])
+        ->orderBy('id', 'desc')
+        ->paginate(20);
+}
+```
+
+### Implicit Authorization
+
+Route model binding ensures users can only access their own resources:
+
+```php
+// Projects are scoped to authenticated user
+$request->user()->projects()->create([...]);
+
+// Only collaborators can access project
+$project->collaborators()->attach($userId);
+```
+
+## Role Assignment
+
+### During Registration
+
+Users select their initial role during registration:
+
+```php
+// app/Http/Controllers/Auth/RegisteredUserController.php
+$role = match($request->integer('role')) {
+    1 => 'guest',
+    2 => 'student',
+    3 => 'teacher',
+    default => 'guest',
+};
+
+$user = User::create([...]);
+$user->assignRole($role);
+```
+
+### By Administrators
+
+Admins can change user roles via the admin panel:
+
+```php
+// app/Http/Controllers/Admin/AdminUserRoleController.php
+Route::patch('admin/users/{user}/role', AdminUserRoleController::class)
+    ->name('admin.users.role');
+```
+
+## Account Status Control
+
+Administrators can activate or deactivate user accounts:
+
+```php
+// app/Http/Controllers/Admin/AdminUserStatusController.php
+Route::patch('admin/users/{user}/status', AdminUserStatusController::class)
+    ->name('admin.users.status');
+```
+
+Inactive users are redirected to a special page:
+
+```php
+// routes/roles/inactive.php
+Route::middleware(['auth', 'inactive'])->group(function () {
+    // Inactive user routes
+});
+```
+
+## Route Organization
+
+Roles are organized in separate route files:
+
+```
+routes/roles/
+├── admin.php      # Admin-only routes
+├── member.php     # Member routes (events + posts)
+├── teacher.php    # Teacher routes (posts only)
+├── student.php    # Student routes (projects only)
+├── guest.php      # Guest routes (minimal)
+└── inactive.php   # Inactive user routes
+```
+
+This structure provides:
+- Clear separation of concerns
+- Easy permission auditing
+- Simplified role management
+- Maintainable codebase
+
+## Checking Permissions in Code
+
+Use Spatie's permission methods:
+
+```php
+// Check if user has specific role
+if ($user->hasRole('admin')) {
+    // Admin logic
+}
+
+// Check if user has permission
+if ($user->can('manage-posts')) {
+    // Post management logic
+}
+
+// Check if user has any role
+if ($user->hasAnyRole(['teacher', 'admin', 'member'])) {
+    // Multi-role logic
+}
+```
+
+## Related Documentation
+
+- [Authentication System](/features/authentication)
+- [Administrator Guide](/guides/admin)
+- [Project Management](/features/projects)
+- [Event Management](/features/events)

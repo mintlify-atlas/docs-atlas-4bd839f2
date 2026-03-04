@@ -1,97 +1,293 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: EduStack Smart Documentation
+description: Enterprise academic platform with AI-powered tutoring, project management, and event coordination
+mode: custom
 ---
 
-## Setting up
+<div className="relative overflow-hidden dark:bg-[#0f1117] bg-white">
+  {/* Hero Section */}
+  <div className="relative py-20 px-4 sm:px-6 lg:px-8 dark:bg-gradient-to-b dark:from-[#1a1d27] dark:to-[#0f1117] bg-gradient-to-b from-gray-50 to-white">
+    <div className="max-w-7xl mx-auto">
+      <div className="text-center">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold dark:text-white text-gray-900 mb-6">
+          Welcome to EduStack Smart
+        </h1>
+        <p className="text-lg sm:text-xl max-w-3xl mx-auto dark:text-gray-400 text-gray-600 mb-8">
+          Enterprise academic platform combining institutional management, project tracking, event coordination, and AI-powered educational assistance in a modern, scalable architecture.
+        </p>
+        <div className="flex flex-wrap justify-center gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center px-6 py-3 rounded-lg bg-[#3b82f6] text-white font-semibold hover:bg-[#2563eb] transition-colors"
+          >
+            Get Started
+          </a>
+          <a
+            href="/architecture/overview"
+            className="inline-flex items-center px-6 py-3 rounded-lg border dark:border-[#27272a] border-gray-300 dark:bg-white/5 bg-gray-50 dark:text-gray-100 text-gray-900 font-semibold dark:hover:border-[#3b82f6] hover:border-[#3b82f6] transition-colors"
+          >
+            Explore Architecture
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
 
-Get your documentation site up and running in minutes.
+  {/* Quick Start Section */}
+  <div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+    <div className="text-center mb-12">
+      <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Quick Start</h2>
+      <p className="text-base dark:text-gray-400 text-gray-600">Get EduStack Smart running in minutes</p>
+    </div>
+    
+    <Steps>
+      <Step title="Clone the repository">
+        Clone the EduStack Smart repository to your local machine:
+        
+        ```bash
+        git clone https://github.com/DiegoMP06/innotech-app.git
+        cd innotech-app
+        ```
+      </Step>
+      
+      <Step title="Install dependencies">
+        Install both PHP and JavaScript dependencies:
+        
+        <CodeGroup>
+        ```bash Composer & NPM
+        composer install
+        npm install
+        ```
+        
+        ```bash Composer & PNPM
+        composer install
+        pnpm install
+        ```
+        </CodeGroup>
+      </Step>
+      
+      <Step title="Configure environment">
+        Copy the example environment file and configure your database:
+        
+        ```bash
+        cp .env.example .env
+        php artisan key:generate
+        ```
+        
+        <Note>Update the `.env` file with your database credentials and application settings.</Note>
+      </Step>
+      
+      <Step title="Run migrations">
+        Set up the database schema and seed initial data:
+        
+        ```bash
+        php artisan migrate --seed
+        ```
+      </Step>
+      
+      <Step title="Start the development server">
+        Launch the application with all services:
+        
+        ```bash
+        composer run dev
+        ```
+        
+        This command starts the Laravel server, queue worker, and Vite development server concurrently.
+      </Step>
+    </Steps>
+  </div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+  {/* Key Features Section */}
+  <div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+    <div className="text-center mb-12">
+      <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Key Features</h2>
+      <p className="text-base dark:text-gray-400 text-gray-600">Powerful tools for modern academic institutions</p>
+    </div>
+    
+    <CardGroup cols={2}>
+      <Card title="Role-Based Access Control" icon="shield-halved" href="/features/rbac">
+        Granular permissions system with 5 distinct user roles: Admin, Teacher, Member, Student, and Visitor
+      </Card>
+      
+      <Card title="Project Management" icon="diagram-project" href="/features/projects">
+        Track institutional projects with SemVer versioning, collaborators, and rich multimedia content
+      </Card>
+      
+      <Card title="Event Coordination" icon="calendar-days" href="/features/events">
+        Manage academic events, activities, registrations, and team competitions
+      </Card>
+      
+      <Card title="Institutional Blog" icon="newspaper" href="/features/blog">
+        Content management system with categories, types, and media gallery support
+      </Card>
+      
+      <Card title="AI-Powered Tutor" icon="brain" href="/features/ai-tutor">
+        Local LLM execution in the browser using WebLLM and WebGPU for privacy-focused assistance
+      </Card>
+      
+      <Card title="Real-Time Communication" icon="bolt" href="/advanced/realtime">
+        WebSocket-based notifications and updates powered by Laravel Reverb
+      </Card>
+    </CardGroup>
+  </div>
 
-## Make it yours
+  {/* Architecture Highlights Section */}
+  <div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+    <div className="text-center mb-12">
+      <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Architecture Highlights</h2>
+      <p className="text-base dark:text-gray-400 text-gray-600">Built with modern, production-ready technologies</p>
+    </div>
+    
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-lg p-6 dark:border dark:border-[#27272a] border border-gray-200">
+        <h3 className="text-xl font-semibold dark:text-white text-gray-900 mb-3">Backend</h3>
+        <ul className="space-y-2 dark:text-gray-400 text-gray-600">
+          <li>• PHP 8.3 + Laravel 12</li>
+          <li>• PostgreSQL / MySQL</li>
+          <li>• Laravel Sanctum Auth</li>
+          <li>• Event-Driven Architecture</li>
+          <li>• Queue-Based Processing</li>
+        </ul>
+      </div>
+      
+      <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-lg p-6 dark:border dark:border-[#27272a] border border-gray-200">
+        <h3 className="text-xl font-semibold dark:text-white text-gray-900 mb-3">Frontend</h3>
+        <ul className="space-y-2 dark:text-gray-400 text-gray-600">
+          <li>• React 19 + TypeScript</li>
+          <li>• Inertia.js for SPA</li>
+          <li>• Tailwind CSS 4</li>
+          <li>• Radix UI Components</li>
+          <li>• Vite Build System</li>
+        </ul>
+      </div>
+      
+      <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-lg p-6 dark:border dark:border-[#27272a] border border-gray-200">
+        <h3 className="text-xl font-semibold dark:text-white text-gray-900 mb-3">Advanced</h3>
+        <ul className="space-y-2 dark:text-gray-400 text-gray-600">
+          <li>• Laravel Reverb WebSockets</li>
+          <li>• Spatie Media Library</li>
+          <li>• WebLLM AI Integration</li>
+          <li>• Async Media Processing</li>
+          <li>• Docker Ready</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 
-Design a docs site that looks great and empowers your users.
+  {/* User Guides Section */}
+  <div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+    <div className="text-center mb-12">
+      <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">User Guides</h2>
+      <p className="text-base dark:text-gray-400 text-gray-600">Role-specific documentation for every user type</p>
+    </div>
+    
+    <CardGroup cols={2}>
+      <Card title="Administrator Guide" icon="user-shield" href="/guides/admin">
+        Manage users, roles, permissions, and system-wide settings
+      </Card>
+      
+      <Card title="Teacher Guide" icon="chalkboard-user" href="/guides/teacher">
+        Create and manage projects, classroom activities, and student engagement
+      </Card>
+      
+      <Card title="Member Guide" icon="users" href="/guides/member">
+        Publish blog posts, coordinate events, and manage institutional content
+      </Card>
+      
+      <Card title="Student Guide" icon="graduation-cap" href="/guides/student">
+        Participate in projects, join events, and track academic progress
+      </Card>
+    </CardGroup>
+  </div>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+  {/* API Reference Section */}
+  <div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+    <div className="text-center mb-12">
+      <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">API Reference</h2>
+      <p className="text-base dark:text-gray-400 text-gray-600">Integrate with EduStack Smart programmatically</p>
+    </div>
+    
+    <CardGroup cols={2}>
+      <Card title="Authentication" icon="key" href="/api/authentication">
+        Learn how to authenticate API requests using Laravel Sanctum tokens
+      </Card>
+      
+      <Card title="Blog API" icon="newspaper" href="/api/blog">
+        Retrieve blog posts, categories, and content programmatically
+      </Card>
+      
+      <Card title="Projects API" icon="diagram-project" href="/api/projects">
+        Access project data, collaborators, and version information
+      </Card>
+      
+      <Card title="Events API" icon="calendar-days" href="/api/events">
+        Query events, activities, registrations, and team data
+      </Card>
+    </CardGroup>
+  </div>
 
-## Create beautiful pages
+  {/* Resources Section */}
+  <div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+    <div className="dark:bg-[#1a1d27] bg-gray-50 rounded-2xl p-8 dark:border dark:border-[#27272a] border border-gray-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <h3 className="text-xl font-semibold dark:text-white text-gray-900 mb-4">Development Resources</h3>
+          <ul className="space-y-3">
+            <li>
+              <a href="/development/setup" className="dark:text-[#60a5fa] text-[#3b82f6] hover:underline">
+                Development Setup Guide →
+              </a>
+            </li>
+            <li>
+              <a href="/development/environment" className="dark:text-[#60a5fa] text-[#3b82f6] hover:underline">
+                Environment Configuration →
+              </a>
+            </li>
+            <li>
+              <a href="/development/testing" className="dark:text-[#60a5fa] text-[#3b82f6] hover:underline">
+                Testing Guidelines →
+              </a>
+            </li>
+          </ul>
+        </div>
+        
+        <div>
+          <h3 className="text-xl font-semibold dark:text-white text-gray-900 mb-4">Advanced Topics</h3>
+          <ul className="space-y-3">
+            <li>
+              <a href="/advanced/realtime" className="dark:text-[#60a5fa] text-[#3b82f6] hover:underline">
+                Real-Time Communication →
+              </a>
+            </li>
+            <li>
+              <a href="/advanced/queues" className="dark:text-[#60a5fa] text-[#3b82f6] hover:underline">
+                Queue Processing →
+              </a>
+            </li>
+            <li>
+              <a href="/advanced/media-processing" className="dark:text-[#60a5fa] text-[#3b82f6] hover:underline">
+                Media Processing →
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
 
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+  {/* Closing CTA */}
+  <div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+    <div className="dark:bg-gradient-to-r dark:from-[#1a1d27] dark:to-[#242838] bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-12 text-center dark:border dark:border-[#27272a] border border-gray-200">
+      <h2 className="text-3xl font-bold dark:text-white text-gray-900 mb-4">Ready to get started?</h2>
+      <p className="text-lg dark:text-gray-400 text-gray-600 mb-8 max-w-2xl mx-auto">
+        Set up your EduStack Smart instance and start managing your academic institution with modern tools and AI-powered features.
+      </p>
+      <a
+        href="/quickstart"
+        className="inline-flex items-center px-8 py-4 rounded-lg bg-[#3b82f6] text-white font-semibold hover:bg-[#2563eb] transition-colors text-lg"
+      >
+        Start Building Now
+      </a>
+    </div>
+  </div>
+</div>

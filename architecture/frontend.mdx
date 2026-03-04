@@ -1,0 +1,786 @@
+---
+title: Frontend Architecture
+description: Inertia.js + React, TypeScript setup, component structure, and state management
+---
+
+## Frontend Overview
+
+EduStack Smart uses a modern frontend stack built on React 19 with TypeScript, leveraging Inertia.js for seamless server-side integration. This eliminates the need for a separate API layer while maintaining the benefits of a single-page application.
+
+## Technology Stack
+
+### Core Technologies
+
+From `package.json:33`:
+
+```json
+"dependencies": {
+    "@inertiajs/react": "^2.1.4",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "typescript": "^5.7.2",
+    "vite": "^7.0.4"
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="React 19" icon="react">
+    Latest React with concurrent features, improved hooks, and automatic batching
+  </Card>
+  
+  <Card title="TypeScript 5.7" icon="code">
+    Strict type checking with ESNext target
+  </Card>
+  
+  <Card title="Inertia.js 2.1" icon="layer-group">
+    Modern monolith approach without REST API
+  </Card>
+  
+  <Card title="Vite 7" icon="bolt">
+    Lightning-fast HMR and optimized builds
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+```
+resources/js/
+├── api/                    # API client utilities
+├── app.tsx                 # Application entry point
+├── ssr.tsx                 # Server-side rendering entry
+├── components/
+│   ├── admin/             # Admin-specific components
+│   ├── app/               # Core app components
+│   ├── dropzone/          # File upload components
+│   ├── leaflet/           # Map components
+│   ├── member/            # Member area components
+│   ├── puck/              # Page builder components
+│   ├── tiptap/            # Rich text editor
+│   ├── ui/                # Reusable UI components
+│   └── user/              # User-specific components
+├── consts/                # Constants and configuration
+├── hooks/                 # Custom React hooks
+│   ├── custom/            # Domain-specific hooks
+│   ├── use-appearance.tsx # Theme management
+│   ├── use-clipboard.ts   # Clipboard utilities
+│   ├── use-mobile.tsx     # Responsive utilities
+│   └── use-two-factor-auth.ts
+├── layouts/               # Page layouts
+│   ├── app/               # Authenticated layouts
+│   ├── auth/              # Authentication layouts
+│   └── settings/          # Settings layouts
+├── lib/                   # Utility libraries
+├── pages/                 # Inertia page components
+│   ├── admin/             # Admin pages
+│   ├── auth/              # Auth pages
+│   ├── member/            # Member pages
+│   ├── settings/          # Settings pages
+│   ├── user/              # User pages
+│   ├── dashboard.tsx      # Main dashboard
+│   └── welcome.tsx        # Landing page
+├── types/                 # TypeScript definitions
+│   └── index.ts           # Shared types
+└── utils/                 # Helper functions
+```
+
+## Application Entry Point
+
+From `resources/js/app.tsx:24`:
+
+```typescript
+import { createInertiaApp } from '@inertiajs/react';
+import { configureEcho } from '@laravel/echo-react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import { createRoot } from 'react-dom/client';
+import { ToastContainer } from 'react-toastify';
+import { initializeTheme } from './hooks/use-appearance';
+
+configureEcho({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    wssPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    forceTLS: false,
+    enabledTransports: ['ws', 'wss'],
+});
+
+const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const queryClient = new QueryClient()
+
+createInertiaApp({
+    title: (title) => (title ? `${title} - ${appName}` : appName),
+    resolve: (name) =>
+        resolvePageComponent(
+            `./pages/${name}.tsx`,
+            import.meta.glob('./pages/**/*.tsx'),
+        ),
+    setup({ el, App, props }) {
+        const root = createRoot(el);
+
+        root.render(
+            <QueryClientProvider client={queryClient}>
+                <App {...props} />
+                <ToastContainer />
+            </QueryClientProvider>
+        );
+    },
+    progress: {
+        color: '#c82b06',
+    },
+});
+
+// This will set light / dark mode on load...
+initializeTheme();
+```
+
+<Accordion title="Key Features of Application Setup">
+  - **Laravel Echo** configured for WebSocket real-time communication
+  - **TanStack Query** provider for server state management
+  - **Toast notifications** for user feedback
+  - **Dynamic page imports** with Vite glob patterns
+  - **Theme initialization** on application load
+  - **Progress bar** for page transitions
+</Accordion>
+
+## TypeScript Configuration
+
+From `tsconfig.json:110`:
+
+```json
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "strict": true,
+        "noImplicitAny": true,
+        "isolatedModules": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "allowJs": true,
+        "noEmit": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["./resources/js/*"]
+        }
+    },
+    "include": [
+        "resources/js/**/*.ts",
+        "resources/js/**/*.d.ts",
+        "resources/js/**/*.tsx"
+    ]
+}
+```
+
+<Info>
+Strict mode enabled with `@/*` path alias for clean imports. ESNext target for modern JavaScript features.
+</Info>
+
+## Type Definitions
+
+From `resources/js/types/index.ts:7`:
+
+```typescript
+export enum RoleEnum {
+    Guest = 'guest',
+    Student = 'student',
+    Teacher = 'teacher',
+    Member = 'member',
+    Admin = 'admin',
+}
+
+export type Role = {
+    id: number;
+    name: string;
+    guard_name: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export interface Auth {
+    user: User;
+}
+
+export interface SharedData {
+    name: string;
+    quote: { message: string; author: string };
+    auth: Auth;
+    sidebarOpen: boolean;
+    [key: string]: unknown;
+}
+
+export interface User {
+    id: number;
+    name: string;
+    father_last_name: string;
+    mother_last_name: string;
+    email: string;
+    avatar?: string;
+    email_verified_at: string | null;
+    two_factor_enabled?: boolean;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+    roles: Role[];
+}
+```
+
+### Content Types
+
+From `resources/js/types/index.ts:178`:
+
+```typescript
+export type Post = {
+    id: number;
+    name: string;
+    slug: string;
+    summary: string;
+    content: Content<ComponentProps>;
+    is_feaured: boolean;
+    is_published: boolean;
+    published_at: null | string;
+    post_type_id: number;
+    user_id: number;
+    created_at: string;
+    updated_at: string;
+    categories: PivotType<PostCategory>[];
+    type: PostType;
+    author: UserData;
+    media: Media[];
+};
+
+export type Event = {
+    id: number;
+    name: string;
+    slug: string;
+    summary: string;
+    content: Content<ComponentProps>;
+    is_free: boolean;
+    price: number;
+    percent_off: number;
+    location: string;
+    lat: string;
+    lng: string;
+    registration_started_at: string;
+    registration_ended_at: string;
+    start_date: string;
+    end_date: string;
+    is_published: boolean;
+    user_id: number;
+    created_at: string;
+    updated_at: string;
+    activities: EventActivity[];
+    author: UserData;
+    event_status_id: 1;
+    media: Media[];
+};
+```
+
+<Note>
+Types are automatically kept in sync with Laravel backend models through shared contracts.
+</Note>
+
+## Component Architecture
+
+### UI Components (Radix + Tailwind)
+
+The application uses Radix UI primitives styled with Tailwind CSS:
+
+```
+components/ui/
+├── alert.tsx
+├── avatar.tsx
+├── badge.tsx
+├── breadcrumb.tsx
+├── button.tsx
+├── calendar.tsx
+├── card.tsx
+├── checkbox.tsx
+├── collapsible.tsx
+├── context-menu.tsx
+├── dialog.tsx
+├── dropdown-menu.tsx
+├── input.tsx
+├── label.tsx
+├── select.tsx
+├── separator.tsx
+├── switch.tsx
+├── table.tsx
+├── textarea.tsx
+└── tooltip.tsx
+```
+
+From `package.json:40`:
+```json
+"@radix-ui/react-avatar": "^1.1.3",
+"@radix-ui/react-checkbox": "^1.1.4",
+"@radix-ui/react-dialog": "^1.1.6",
+"@radix-ui/react-dropdown-menu": "^2.1.6",
+```
+
+### Layout Components
+
+From `resources/js/layouts/app-layout.tsx:10`:
+
+```typescript
+import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import { type BreadcrumbItem } from '@/types';
+import { type ReactNode } from 'react';
+
+interface AppLayoutProps {
+    children: ReactNode;
+    breadcrumbs?: BreadcrumbItem[];
+}
+
+export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => (
+    <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
+        {children}
+    </AppLayoutTemplate>
+);
+```
+
+Layouts provide consistent structure:
+- **app-layout.tsx** - Main authenticated layout with sidebar
+- **auth-layout.tsx** - Authentication pages layout
+- **settings** - Settings pages layout
+
+### Page Components
+
+From `resources/js/pages/dashboard.tsx`:
+
+```typescript
+import AppLayout from '@/layouts/app-layout';
+import { Head } from '@inertiajs/react';
+
+export default function Dashboard() {
+    return (
+        <>
+            <Head title="Dashboard" />
+            <div className="container mx-auto py-6">
+                <h1 className="text-3xl font-bold">Dashboard</h1>
+                {/* Dashboard content */}
+            </div>
+        </>
+    );
+}
+
+Dashboard.layout = (page: React.ReactNode) => (
+    <AppLayout breadcrumbs={[{ title: 'Dashboard', href: '/dashboard' }]}>
+        {page}
+    </AppLayout>
+);
+```
+
+<Accordion title="Inertia Page Pattern">
+  - **Default export** is the page component
+  - **Head component** sets page title and meta tags
+  - **Layout assignment** via static property
+  - **Props received** from Laravel controller
+  - **Type-safe** with TypeScript interfaces
+</Accordion>
+
+## State Management
+
+### Server State with TanStack Query
+
+From `package.json:57`:
+```json
+"@tanstack/react-query": "^5.90.2"
+```
+
+Used for:
+- Caching server responses
+- Background refetching
+- Optimistic updates
+- Pagination
+
+### Client State with Zustand
+
+From `package.json:100`:
+```json
+"zustand": "^5.0.8"
+```
+
+Lightweight state management for:
+- UI state (sidebar, modals)
+- User preferences
+- Temporary form data
+
+### Form State with React Hook Form
+
+From `package.json:87`:
+```json
+"react-hook-form": "^7.63.0"
+```
+
+Manages:
+- Form validation
+- Form submission
+- Field errors
+- Field registration
+
+## Custom Hooks
+
+### Theme Management
+
+From `resources/js/hooks/use-appearance.tsx`:
+
+```typescript
+export function initializeTheme() {
+    const theme = localStorage.getItem('theme') || 'light';
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+}
+
+export function useAppearance() {
+    const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+        return localStorage.getItem('theme') as 'light' | 'dark' || 'light';
+    });
+
+    const toggleTheme = () => {
+        const newTheme = theme === 'light' ? 'dark' : 'light';
+        setTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+        document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    };
+
+    return { theme, toggleTheme };
+}
+```
+
+### Two-Factor Authentication
+
+From `resources/js/hooks/use-two-factor-auth.ts`:
+
+Handles:
+- QR code generation
+- Recovery codes
+- Enabling/disabling 2FA
+- Code verification
+
+### Mobile Detection
+
+From `resources/js/hooks/use-mobile.tsx`:
+
+```typescript
+export function useMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    return isMobile;
+}
+```
+
+## Rich Content Features
+
+### TipTap Rich Text Editor
+
+From `package.json:58`:
+```json
+"@tiptap/extension-link": "^3.13.0",
+"@tiptap/react": "^3.13.0",
+"@tiptap/starter-kit": "^3.13.0"
+```
+
+Provides:
+- WYSIWYG editing
+- Markdown shortcuts
+- Custom extensions
+- Link management
+
+### Puck Visual Page Builder
+
+From `package.json:39`:
+```json
+"@measured/puck": "^0.20.2"
+```
+
+Drag-and-drop page builder for:
+- Blog post content
+- Event pages
+- Project showcases
+
+### Leaflet Maps
+
+From `package.json:79`:
+```json
+"leaflet": "^1.9.4",
+"react-leaflet": "5.0.0-rc.2"
+```
+
+Interactive maps for:
+- Event locations
+- Activity venues
+- Geographic data
+
+## Real-Time Features
+
+### Laravel Echo Integration
+
+From `resources/js/app.tsx:11`:
+
+```typescript
+import { configureEcho } from '@laravel/echo-react';
+
+configureEcho({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    wssPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    forceTLS: false,
+    enabledTransports: ['ws', 'wss'],
+});
+```
+
+### Using Echo in Components
+
+```typescript
+import { useEcho } from '@laravel/echo-react';
+
+export function MediaUploadComponent({ modelId, modelType }) {
+    const echo = useEcho();
+
+    useEffect(() => {
+        const channel = echo.private(`${modelType}.${modelId}`);
+        
+        channel.listen('MediaProcessed', (event) => {
+            toast.success(event.message);
+            // Refetch data or update state
+        });
+
+        return () => {
+            channel.stopListening('MediaProcessed');
+        };
+    }, [echo, modelId, modelType]);
+
+    return <div>Upload component</div>;
+}
+```
+
+## Build Configuration
+
+From `vite.config.ts:7`:
+
+```typescript
+import { wayfinder } from '@laravel/vite-plugin-wayfinder';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import laravel from 'laravel-vite-plugin';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+    plugins: [
+        laravel({
+            input: ['resources/css/app.css', 'resources/js/app.tsx'],
+            ssr: 'resources/js/ssr.tsx',
+            refresh: true,
+        }),
+        react(),
+        tailwindcss(),
+        wayfinder({
+            formVariants: true,
+        }),
+    ],
+    esbuild: {
+        jsx: 'automatic',
+    },
+});
+```
+
+<CardGroup cols={2}>
+  <Card title="Laravel Plugin" icon="laravel">
+    Integrates Vite with Laravel, handles asset manifest
+  </Card>
+  
+  <Card title="React Plugin" icon="react">
+    Fast Refresh and JSX transformation
+  </Card>
+  
+  <Card title="Tailwind Plugin" icon="palette">
+    JIT compilation for Tailwind CSS 4
+  </Card>
+  
+  <Card title="Wayfinder Plugin" icon="route">
+    Type-safe route generation from Laravel routes
+  </Card>
+</CardGroup>
+
+## Styling Architecture
+
+### Tailwind CSS 4
+
+From `package.json:94`:
+```json
+"tailwindcss": "^4.0.0",
+"@tailwindcss/forms": "^0.5.10",
+"@tailwindcss/typography": "^0.5.19"
+```
+
+Utility-first CSS with:
+- Custom design tokens
+- Dark mode support
+- Form styling plugin
+- Typography plugin for prose content
+
+### Component Variants with CVA
+
+From `package.json:69`:
+```json
+"class-variance-authority": "^0.7.1",
+"tailwind-merge": "^3.0.1"
+```
+
+Example button component:
+```typescript
+import { cva } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
+
+const buttonVariants = cva(
+    'inline-flex items-center justify-center rounded-md font-medium',
+    {
+        variants: {
+            variant: {
+                default: 'bg-primary text-white hover:bg-primary/90',
+                destructive: 'bg-destructive text-white',
+                outline: 'border border-input hover:bg-accent',
+            },
+            size: {
+                default: 'h-10 px-4 py-2',
+                sm: 'h-9 px-3',
+                lg: 'h-11 px-8',
+            },
+        },
+        defaultVariants: {
+            variant: 'default',
+            size: 'default',
+        },
+    }
+);
+```
+
+## Animation
+
+From `package.json:75`:
+```json
+"framer-motion": "^12.25.0",
+"tailwindcss-animate": "^1.0.7"
+```
+
+- **Framer Motion** for complex animations
+- **Tailwind Animate** for utility-based animations
+
+## File Upload
+
+From `package.json:65`:
+```json
+"@uppy/core": "^5.2.0",
+"@uppy/dashboard": "^5.1.0",
+"react-dropzone": "^14.3.8"
+```
+
+Multiple upload solutions:
+- **Uppy** for advanced uploads with progress
+- **React Dropzone** for simple drag-and-drop
+
+## Media Galleries
+
+From `package.json:81`:
+```json
+"photoswipe": "^5.4.4",
+"react-photoswipe-gallery": "^4.0.0"
+```
+
+Lightbox galleries for:
+- Blog post images
+- Project screenshots
+- Event photos
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Component Organization">
+    - One component per file
+    - Group by feature, not type
+    - Use barrel exports (index.ts)
+    - Keep components small and focused
+  </Accordion>
+  
+  <Accordion title="TypeScript Usage">
+    - Define interfaces for all props
+    - Use enums for constants
+    - Leverage type inference
+    - Avoid `any` type
+  </Accordion>
+  
+  <Accordion title="State Management">
+    - Server state → TanStack Query
+    - Global UI state → Zustand
+    - Form state → React Hook Form
+    - Local state → useState
+  </Accordion>
+  
+  <Accordion title="Performance">
+    - Lazy load routes and heavy components
+    - Memoize expensive calculations
+    - Use React Query for caching
+    - Optimize images and assets
+  </Accordion>
+  
+  <Accordion title="Accessibility">
+    - Use Radix UI for accessible primitives
+    - Semantic HTML elements
+    - ARIA labels where needed
+    - Keyboard navigation support
+  </Accordion>
+</AccordionGroup>
+
+## Development Tools
+
+### Code Quality
+
+From `package.json:22`:
+```json
+"eslint": "^9.17.0",
+"prettier": "^3.4.2",
+"typescript-eslint": "^8.23.0"
+```
+
+### Scripts
+
+From `package.json:4`:
+```json
+"scripts": {
+    "build": "vite build",
+    "build:ssr": "vite build && vite build --ssr",
+    "dev": "vite",
+    "format": "prettier --write resources/",
+    "format:check": "prettier --check resources/",
+    "lint": "eslint . --fix",
+    "types": "tsc --noEmit"
+}
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Backend Architecture" icon="server" href="/architecture/backend">
+    Understand how Laravel serves Inertia responses
+  </Card>
+  
+  <Card title="Database Schema" icon="database" href="/architecture/database">
+    Learn about data models consumed by frontend
+  </Card>
+</CardGroup>

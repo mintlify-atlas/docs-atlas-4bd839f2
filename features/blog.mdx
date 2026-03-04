@@ -1,0 +1,584 @@
+---
+title: Blog & Content Management
+description: Institutional blog system with categories, types, media galleries, and rich content editing
+---
+
+EduStack Smart provides a comprehensive blog and content management system for members to create, manage, and publish institutional content with full media support and categorization.
+
+## Overview
+
+The blog system enables:
+
+- **Post creation and management** with rich metadata
+- **Post types** for content classification
+- **Category tagging** with many-to-many relationships
+- **Media galleries** with optimized image processing
+- **Publish/draft status** control
+- **Featured posts** for homepage highlighting
+- **Rich content editing** with structured JSON data
+- **View tracking** for analytics
+
+## Technology Stack
+
+- **Spatie MediaLibrary** - Media management and image processing
+- **Spatie Sluggable** - URL-friendly slugs
+- **Amazon S3** - Cloud storage for images
+- **Image optimization** - Automatic responsive images with multiple conversions
+- **TipTap Editor** - Rich text editing in React
+
+## Post Model
+
+The Post model includes comprehensive fields for content management:
+
+```php
+// app/Models/Post.php
+class Post extends Model implements HasMedia
+{
+    use HasSlug, InteractsWithMedia;
+
+    protected $fillable = [
+        'name',
+        'slug',
+        'summary',
+        'content',
+        'views_count',
+        'is_featured',
+        'is_published',
+        'published_at',
+        'post_type_id',
+        'user_id',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'content' => 'array',
+            'is_published' => 'boolean',
+            'is_featured' => 'boolean',
+        ];
+    }
+}
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Post title |
+| `slug` | string | URL-friendly identifier (auto-generated) |
+| `summary` | string | Brief description (min 100 characters) |
+| `content` | array | Structured rich content (JSON) |
+| `views_count` | integer | Number of views |
+| `is_featured` | boolean | Featured on homepage |
+| `is_published` | boolean | Public visibility |
+| `published_at` | datetime | Publication timestamp |
+| `post_type_id` | integer | Post type reference |
+| `user_id` | integer | Post author |
+
+## Post Types
+
+Posts are classified by type for better organization:
+
+```php
+// app/Models/PostType.php
+class PostType extends Model
+{
+    protected $fillable = [
+        'name',
+        'slug',
+    ];
+}
+```
+
+**Common Post Types:**
+
+- News
+- Announcements
+- Articles
+- Tutorials
+- Case Studies
+
+## Category System
+
+Posts support multiple categories through a many-to-many relationship:
+
+```php
+// app/Models/PostCategory.php
+class PostCategory extends Model
+{
+    protected $fillable = [
+        'name',
+        'slug',
+    ];
+
+    public function posts()
+    {
+        return $this->belongsToMany(Post::class, 'category_posts', 
+            'post_category_id', 'post_id')
+            ->withPivot('id');
+    }
+}
+
+// app/Models/Post.php
+public function categories()
+{
+    return $this->belongsToMany(PostCategory::class, 'category_posts', 
+        'post_id', 'post_category_id')
+        ->withPivot('id');
+}
+```
+
+**Category Features:**
+
+- Multiple categories per post
+- Filter posts by category
+- URL-friendly slugs
+- Easy category management
+
+## Post Creation Workflow
+
+Posts are created through a multi-step process:
+
+### Step 1: Basic Information & Images
+
+The initial creation form collects essential data:
+
+```php
+// app/Http/Controllers/Member/Blog/BlogController.php
+public function store(Request $request)
+{
+    $data = $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'summary' => ['required', 'string', 'min:100'],
+        'images' => ['required', 'array', 'min:1', 'max:20'],
+        'images.*' => ['required', 'image', 'mimes:jpg,png,jpeg,webp'],
+        'post_type_id' => ['required', 'integer', 'exists:post_types,id'],
+        'categories' => ['array', 'required', 'min:1'],
+        'categories.*' => ['required', 'integer', 'exists:post_categories,id'],
+    ]);
+
+    $images = $request->file('images');
+
+    $post = $request->user()->posts()->create([
+        'name' => $data['name'],
+        'summary' => $data['summary'],
+        'content' => [],
+        'post_type_id' => $data['post_type_id'],
+    ]);
+
+    $post->categories()->sync($data['categories']);
+
+    foreach ($images as $file) {
+        $post->addMedia($file)
+            ->toMediaCollection('gallery');
+    }
+
+    return redirect()->intended(route(
+        'posts.content.edit',
+        ['post' => $post, 'edit' => false]
+    ));
+}
+```
+
+**Required Fields:**
+
+- Post name/title
+- Summary (minimum 100 characters)
+- At least 1 image (max 20)
+- Post type selection
+- At least 1 category
+
+**Frontend Implementation:**
+
+```tsx
+// resources/js/pages/member/blog/create-post.tsx
+const initialValues: PostFormData = {
+    name: '',
+    summary: '',
+    images: [],
+    post_type_id: 1,
+    categories: [],
+}
+
+const handleCreatePost: SubmitHandler<PostFormData> = (data) => {
+    router.post(posts.store(), data, {
+        preserveScroll: true,
+        showProgress: true,
+        forceFormData: true,
+        onSuccess: (data) => {
+            toast.success(data.props.message as string)
+        }
+    })
+}
+```
+
+### Step 2: Rich Content Editing
+
+After creation, users are redirected to the content editor:
+
+```php
+// app/Http/Controllers/Member/Blog/PostContentController.php
+public function edit(Post $post, Request $request)
+{
+    $edit = $request->boolean('edit', false);
+    return inertia('member/blog/post-content', [
+        'post' => $post,
+        'edit' => $edit,
+    ]);
+}
+
+public function update(Post $post, Request $request)
+{
+    $data = $request->validate([
+        'content' => ['required', 'array'],
+        'content.*.props' => ['required', 'array'],
+        'content.*.type' => ['required', 'string'],
+    ]);
+
+    $post->content = $data['content'];
+    $post->save();
+
+    return $edit ? 
+        back() : 
+        redirect()->intended(route('posts.index'))
+            ->with('message', 'Contenido guardado correctamente.');
+}
+```
+
+The content is stored as structured JSON array, allowing for flexible rich content blocks.
+
+## Media Gallery Management
+
+Posts support comprehensive media galleries with optimized image processing:
+
+### Media Collection Configuration
+
+```php
+// app/Models/Post.php
+public function registerMediaCollections(): void
+{
+    $this->addMediaCollection('gallery')
+        ->useDisk('s3');
+}
+
+public function registerMediaConversions(?Media $media = null): void
+{
+    $this->addMediaConversion('hero')
+        ->fit(Fit::Crop, 1920, 1080)
+        ->quality(85)
+        ->sharpen(10);
+
+    $this->addMediaConversion('main')
+        ->fit(Fit::Crop, 1200, 620)
+        ->quality(85)
+        ->sharpen(10)
+        ->withResponsiveImages();
+}
+```
+
+**Image Processing:**
+
+- **Storage:** Amazon S3
+- **Formats:** JPG, PNG, JPEG, WebP
+- **Hero Conversion:** 1920x1080 (Full HD)
+- **Main Conversion:** 1200x620 with responsive images
+- **Quality:** 85% compression
+- **Optimization:** Automatic sharpening
+- **Limit:** 20 images per post
+
+### Adding Images to Gallery
+
+```php
+// app/Http/Controllers/Member/Blog/PostGalleryController.php
+public function store(Request $request, Post $post)
+{
+    $request->validate([
+        'image' => ['required', 'image', 'mimes:jpg,png,jpeg,webp'],
+    ]);
+
+    $post->addMediaFromRequest('image')
+        ->toMediaCollection('gallery');
+
+    return back()->with('message', 'Post actualizado correctamente.');
+}
+```
+
+### Removing Images from Gallery
+
+```php
+public function destroy(Request $request, Post $post, Media $media)
+{
+    if($post->media()->count() == 1){
+        throw ValidationException::withMessages([
+            'image' => 'El post debe tener al menos una imagen.',
+        ]);
+    }
+
+    $media->delete();
+    return back()->with('message', 'Post actualizado correctamente.');
+}
+```
+
+**Gallery Features:**
+
+- Add images after post creation
+- Remove images (must keep at least 1)
+- Automatic image optimization
+- S3 cloud storage
+- Responsive image generation
+
+## Post Status Management
+
+Posts can be published or kept as drafts:
+
+```php
+// app/Http/Controllers/Member/Blog/PostStatusController.php
+public function __invoke(Post $post, Request $request)
+{
+    $post->is_published = !$post->is_published;
+    $post->published_at = $post->is_published ? now() : null;
+    $post->save();
+
+    return back()->with('message', 
+        "El estado de la publicación ha sido actualizado.");
+}
+```
+
+**Status Options:**
+
+- **Draft** - Only visible to author
+- **Published** - Publicly visible on the platform
+
+**Status Tracking:**
+
+- `is_published` boolean flag
+- `published_at` timestamp (set on first publication)
+
+## Post Listing & Search
+
+Members can view and search their posts with filtering:
+
+```php
+// app/Http/Controllers/Member/Blog/BlogController.php
+public function index(Request $request)
+{
+    $search = $request->string('search', '');
+    $page = $request->integer('page', 1);
+    $category = $request->query('category', null);
+    $type = $request->query('type', null);
+
+    $posts = $request->user()
+        ->posts()
+        ->when(
+            $search,
+            fn($query, $search) =>
+            $query->where('name', 'like', "%{$search}%")
+        )
+        ->when(
+            $category,
+            fn($query, $category) =>
+            $query->whereHas('categories', function ($query) use ($category) {
+                $query->where('post_category_id', $category);
+            })
+        )
+        ->when(
+            $type,
+            fn($query, $type) =>
+            $query->where('post_type_id', $type)
+        )
+        ->orderBy('id', 'desc')
+        ->with(['type', 'categories', 'media'])
+        ->paginate(20);
+
+    return Inertia::render('member/blog/blog', [
+        'posts' => new PostCollection($posts),
+        'types' => PostType::all(),
+        'categories' => PostCategory::all(),
+    ]);
+}
+```
+
+**Search & Filter Features:**
+
+- Search by post name
+- Filter by category
+- Filter by post type
+- Pagination (20 posts per page)
+- Sorted by newest first
+- Eager loading of relationships
+
+## Viewing Posts
+
+```php
+public function show(Post $post)
+{
+    return Inertia::render('member/blog/show-post', [
+        'post' => (new PostCollection([
+            $post->load(['categories', 'type', 'media', 'author'])
+        ]))->first(),
+    ]);
+}
+```
+
+**Displayed Information:**
+
+- Post title and summary
+- Rich content
+- Author information
+- Post type
+- Categories
+- Media gallery
+- Publication status
+- View count
+
+## Editing Posts
+
+```php
+public function edit(Post $post, Request $request)
+{
+    $types = PostType::all();
+    $categories = PostCategory::all();
+
+    return Inertia::render('member/blog/edit-post', [
+        'post' => (new PostCollection([
+            $post->load(['categories', 'type', 'media'])
+        ]))->first(),
+        'types' => $types,
+        'categories' => $categories,
+    ]);
+}
+
+public function update(Request $request, Post $post)
+{
+    $data = $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'summary' => ['required', 'string', 'min:100'],
+        'post_type_id' => ['required', 'integer', 'exists:post_types,id'],
+    ]);
+
+    $post->name = $data['name'];
+    $post->summary = $data['summary'];
+    $post->post_type_id = $data['post_type_id'];
+    $post->save();
+
+    return back()->with('message', 'Post actualizado correctamente.');
+}
+```
+
+**Editable Fields:**
+
+- Post name
+- Summary
+- Post type
+- Categories (separate form)
+- Content (separate editor)
+- Gallery images (separate manager)
+
+## Deleting Posts
+
+```php
+public function destroy(Post $post)
+{
+    $post->clearMediaCollection('gallery');
+    $post->delete();
+
+    return back()->with('message', 'Post eliminado correctamente.');
+}
+```
+
+**Deletion Process:**
+
+1. Remove all images from S3 storage
+2. Delete database record
+3. Cascade delete category relationships
+
+## Model Relationships
+
+```php
+// app/Models/Post.php
+public function author()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
+public function type()
+{
+    return $this->belongsTo(PostType::class, 'post_type_id');
+}
+
+public function categories()
+{
+    return $this->belongsToMany(PostCategory::class, 'category_posts', 
+        'post_id', 'post_category_id')
+        ->withPivot('id');
+}
+```
+
+**Relationship Structure:**
+
+- **Author** - belongs to User (one-to-many)
+- **Type** - belongs to PostType (one-to-many)
+- **Categories** - many-to-many with PostCategory
+- **Media** - polymorphic relationship via Spatie MediaLibrary
+
+## Route Configuration
+
+All blog routes require authentication and member role:
+
+```php
+// routes/roles/member.php
+Route::middleware([
+    'auth',
+    'verified',
+    'active',
+    'role:member|admin'
+])->group(function () {
+    Route::resource('posts', BlogController::class);
+    
+    Route::get('posts/{post}/content/edit', 
+        [PostContentController::class, 'edit'])
+        ->name('posts.content.edit');
+        
+    Route::patch('posts/{post}/content', 
+        [PostContentController::class, 'update'])
+        ->name('posts.content.update');
+        
+    Route::patch('posts/{post}/status', PostStatusController::class)
+        ->name('posts.status');
+        
+    Route::post('posts/{post}/medias', 
+        [PostGalleryController::class, 'store'])
+        ->name('posts.medias.store');
+        
+    Route::delete('posts/{post}/medias/{media}', 
+        [PostGalleryController::class, 'destroy'])
+        ->name('posts.medias.destroy');
+});
+```
+
+## API Resources
+
+Posts are formatted for frontend consumption:
+
+```php
+// app/Http/Resources/PostResource.php
+// app/Http/Resources/PostCollection.php
+```
+
+Resources provide clean, consistent JSON output for the React frontend.
+
+## Frontend Pages
+
+The blog system includes React pages built with Inertia.js:
+
+- **`blog.tsx`** - Post listing with search and filters
+- **`create-post.tsx`** - Post creation form
+- **`edit-post.tsx`** - Post editing form
+- **`show-post.tsx`** - Post detail view
+- **`post-content.tsx`** - Rich content editor
+
+## Related Documentation
+
+- [Role-Based Access Control](/features/rbac)
+- [Media Processing](/advanced/media-processing)
+- [Event Management](/features/events)

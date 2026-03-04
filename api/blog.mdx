@@ -1,0 +1,537 @@
+---
+title: 'Blog API'
+description: 'Retrieve published blog posts with authors, categories, and media'
+---
+
+# Blog API
+
+The Blog API endpoint allows you to retrieve published blog posts including their authors, post types, categories, and media gallery.
+
+## Endpoint
+
+### GET /api/blog
+
+Retrieve a paginated list of published blog posts.
+
+**Authentication:** Not required (public endpoint)
+
+**Route Name:** `api.blog`
+
+## Request
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  The page number to retrieve
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="15">
+  Number of posts per page (Laravel default pagination)
+</ParamField>
+
+### Example Request
+
+```bash
+curl "https://your-domain.com/api/blog?page=1" \
+  -H "Accept: application/json"
+```
+
+```bash
+# With pagination
+curl "https://your-domain.com/api/blog?page=2&per_page=10" \
+  -H "Accept: application/json"
+```
+
+## Response
+
+### Response Schema
+
+The endpoint returns a paginated collection of posts with the following structure:
+
+<ResponseField name="data" type="array">
+  Array of post objects
+  
+  <ResponseField name="id" type="integer">
+    Unique identifier for the post
+  </ResponseField>
+  
+  <ResponseField name="name" type="string">
+    Title of the blog post
+  </ResponseField>
+  
+  <ResponseField name="slug" type="string">
+    URL-friendly version of the title
+  </ResponseField>
+  
+  <ResponseField name="summary" type="string">
+    Brief description or excerpt of the post
+  </ResponseField>
+  
+  <ResponseField name="content" type="array">
+    Structured content of the post (JSON array)
+  </ResponseField>
+  
+  <ResponseField name="views_count" type="integer">
+    Number of times the post has been viewed
+  </ResponseField>
+  
+  <ResponseField name="is_featured" type="boolean">
+    Whether the post is marked as featured
+  </ResponseField>
+  
+  <ResponseField name="is_published" type="boolean">
+    Publication status (always `true` for API results)
+  </ResponseField>
+  
+  <ResponseField name="published_at" type="string">
+    Publication date and time (ISO 8601 format)
+  </ResponseField>
+  
+  <ResponseField name="post_type_id" type="integer">
+    Foreign key to the post type
+  </ResponseField>
+  
+  <ResponseField name="user_id" type="integer">
+    Foreign key to the author (user)
+  </ResponseField>
+  
+  <ResponseField name="created_at" type="string">
+    Creation timestamp (ISO 8601 format)
+  </ResponseField>
+  
+  <ResponseField name="updated_at" type="string">
+    Last update timestamp (ISO 8601 format)
+  </ResponseField>
+  
+  <ResponseField name="author" type="object">
+    Author information
+    
+    <ResponseField name="id" type="integer">
+      Author's user ID
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Author's first name
+    </ResponseField>
+    
+    <ResponseField name="father_last_name" type="string">
+      Author's paternal surname
+    </ResponseField>
+    
+    <ResponseField name="mother_last_name" type="string">
+      Author's maternal surname
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      Author's email address
+    </ResponseField>
+    
+    <ResponseField name="is_active" type="boolean">
+      Whether the author account is active
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="type" type="object">
+    Post type information
+    
+    <ResponseField name="id" type="integer">
+      Post type ID
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Display name of the post type
+    </ResponseField>
+    
+    <ResponseField name="slug" type="string">
+      URL-friendly post type identifier
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="categories" type="array">
+    Array of category objects associated with the post
+    
+    <ResponseField name="id" type="integer">
+      Category ID
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Category name
+    </ResponseField>
+    
+    <ResponseField name="slug" type="string">
+      URL-friendly category identifier
+    </ResponseField>
+    
+    <ResponseField name="pivot" type="object">
+      Pivot table information
+      
+      <ResponseField name="id" type="integer">
+        Pivot record ID
+      </ResponseField>
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="media" type="array">
+    Array of media objects from the post's gallery
+    
+    <ResponseField name="id" type="integer">
+      Media file ID
+    </ResponseField>
+    
+    <ResponseField name="is_processed" type="boolean">
+      Whether image conversions have been generated
+    </ResponseField>
+    
+    <ResponseField name="urls" type="object">
+      URLs for different image versions
+      
+      <ResponseField name="main" type="string">
+        URL for the main conversion (1200x620px)
+      </ResponseField>
+      
+      <ResponseField name="hero" type="string">
+        URL for the hero conversion (1920x1080px)
+      </ResponseField>
+      
+      <ResponseField name="original" type="string">
+        URL for the original uploaded image
+      </ResponseField>
+    </ResponseField>
+    
+    <ResponseField name="dimensions" type="object">
+      Dimensions for each conversion
+      
+      <ResponseField name="main" type="object">
+        <ResponseField name="width" type="integer">Width: 1200</ResponseField>
+        <ResponseField name="height" type="integer">Height: 620</ResponseField>
+      </ResponseField>
+      
+      <ResponseField name="hero" type="object">
+        <ResponseField name="width" type="integer">Width: 1920</ResponseField>
+        <ResponseField name="height" type="integer">Height: 1080</ResponseField>
+      </ResponseField>
+    </ResponseField>
+    
+    <ResponseField name="responsive" type="object">
+      Responsive image URLs mapped by size label
+    </ResponseField>
+    
+    <ResponseField name="custom_properties" type="object">
+      Custom metadata for the media file
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="links" type="object">
+  Pagination navigation links
+  
+  <ResponseField name="first" type="string">
+    URL to the first page
+  </ResponseField>
+  
+  <ResponseField name="last" type="string">
+    URL to the last page
+  </ResponseField>
+  
+  <ResponseField name="prev" type="string | null">
+    URL to the previous page (null if on first page)
+  </ResponseField>
+  
+  <ResponseField name="next" type="string | null">
+    URL to the next page (null if on last page)
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="meta" type="object">
+  Pagination metadata
+  
+  <ResponseField name="current_page" type="integer">
+    Current page number
+  </ResponseField>
+  
+  <ResponseField name="from" type="integer">
+    Index of the first item on current page
+  </ResponseField>
+  
+  <ResponseField name="last_page" type="integer">
+    Total number of pages
+  </ResponseField>
+  
+  <ResponseField name="path" type="string">
+    Base URL for the endpoint
+  </ResponseField>
+  
+  <ResponseField name="per_page" type="integer">
+    Number of items per page
+  </ResponseField>
+  
+  <ResponseField name="to" type="integer">
+    Index of the last item on current page
+  </ResponseField>
+  
+  <ResponseField name="total" type="integer">
+    Total number of posts
+  </ResponseField>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Getting Started with Laravel 11",
+      "slug": "getting-started-with-laravel-11",
+      "summary": "Learn the basics of Laravel 11 and build your first application",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": "Laravel 11 introduces many new features..."
+        }
+      ],
+      "views_count": 1523,
+      "is_featured": true,
+      "is_published": true,
+      "published_at": "2026-03-01T10:00:00.000000Z",
+      "post_type_id": 1,
+      "user_id": 1,
+      "created_at": "2026-02-28T15:30:00.000000Z",
+      "updated_at": "2026-03-04T09:15:00.000000Z",
+      "author": {
+        "id": 1,
+        "name": "John",
+        "father_last_name": "Doe",
+        "mother_last_name": "Smith",
+        "email": "john.doe@example.com",
+        "is_active": true,
+        "email_verified_at": "2026-01-15T10:30:00.000000Z",
+        "created_at": "2026-01-01T00:00:00.000000Z",
+        "updated_at": "2026-03-01T12:00:00.000000Z"
+      },
+      "type": {
+        "id": 1,
+        "name": "Tutorial",
+        "slug": "tutorial",
+        "created_at": "2026-01-01T00:00:00.000000Z",
+        "updated_at": "2026-01-01T00:00:00.000000Z"
+      },
+      "categories": [
+        {
+          "id": 1,
+          "name": "Web Development",
+          "slug": "web-development",
+          "created_at": "2026-01-01T00:00:00.000000Z",
+          "updated_at": "2026-01-01T00:00:00.000000Z",
+          "pivot": {
+            "id": 1
+          }
+        },
+        {
+          "id": 2,
+          "name": "Laravel",
+          "slug": "laravel",
+          "created_at": "2026-01-01T00:00:00.000000Z",
+          "updated_at": "2026-01-01T00:00:00.000000Z",
+          "pivot": {
+            "id": 2
+          }
+        }
+      ],
+      "media": [
+        {
+          "id": 1,
+          "is_processed": true,
+          "urls": {
+            "main": "https://s3.amazonaws.com/bucket/conversions/image-main.jpg",
+            "hero": "https://s3.amazonaws.com/bucket/conversions/image-hero.jpg",
+            "original": "https://s3.amazonaws.com/bucket/image.jpg"
+          },
+          "dimensions": {
+            "main": {
+              "width": 1200,
+              "height": 620
+            },
+            "hero": {
+              "width": 1920,
+              "height": 1080
+            }
+          },
+          "responsive": {
+            "small": "https://s3.amazonaws.com/bucket/responsive/image-small.jpg",
+            "medium": "https://s3.amazonaws.com/bucket/responsive/image-medium.jpg",
+            "large": "https://s3.amazonaws.com/bucket/responsive/image-large.jpg"
+          },
+          "custom_properties": {
+            "alt": "Laravel tutorial cover image"
+          }
+        }
+      ]
+    }
+  ],
+  "links": {
+    "first": "https://your-domain.com/api/blog?page=1",
+    "last": "https://your-domain.com/api/blog?page=5",
+    "prev": null,
+    "next": "https://your-domain.com/api/blog?page=2"
+  },
+  "meta": {
+    "current_page": 1,
+    "from": 1,
+    "last_page": 5,
+    "path": "https://your-domain.com/api/blog",
+    "per_page": 15,
+    "to": 15,
+    "total": 67
+  }
+}
+```
+
+## Implementation Details
+
+### Controller
+
+Implemented in `app/Http/Controllers/API/ApiBlogController.php`:
+
+```php
+class ApiBlogController extends Controller
+{
+    public function __invoke(Request $request)
+    {
+        $posts = Post::where('is_published', true)
+            ->with(['author', 'type', 'categories'])
+            ->orderBy('is_featured', 'DESC')
+            ->paginate();
+
+        return new PostCollection($posts);
+    }
+}
+```
+
+### Filtering Logic
+
+- **Published Only**: Only posts with `is_published = true` are returned
+- **Eager Loading**: Related data (author, type, categories) is loaded to prevent N+1 queries
+- **Ordering**: Posts are ordered by featured status (featured posts first)
+- **Pagination**: Results are paginated using Laravel's default pagination (15 per page)
+
+### Media Collections
+
+Posts use Spatie Media Library with the following configuration:
+
+**Collection:** `gallery` (stored on S3)
+
+**Conversions:**
+- `main` - 1200x620px, quality 85%, cropped, with responsive images
+- `hero` - 1920x1080px, quality 85%, cropped
+
+Both conversions include sharpening (10) for better image quality.
+
+### Resource Transformation
+
+The `PostResource` class (`app/Http/Resources/PostResource.php`) transforms each post to include processed media URLs:
+
+```php
+class PostResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        $data = parent::toArray($request);
+
+        $data['media'] = $this->getMedia('gallery')->map(
+            fn($m) =>
+            new MediaResource($m, 'main', [
+                'main' => ['width' => 1200, 'height' => 620],
+                'hero' => ['width' => 1920, 'height' => 1080]
+            ], ['hero'])
+        );
+
+        return $data;
+    }
+}
+```
+
+## Usage Examples
+
+### JavaScript (Fetch API)
+
+```javascript
+fetch('https://your-domain.com/api/blog')
+  .then(response => response.json())
+  .then(data => {
+    console.log(`Total posts: ${data.meta.total}`);
+    data.data.forEach(post => {
+      console.log(`${post.name} by ${post.author.name}`);
+    });
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+### JavaScript (Axios)
+
+```javascript
+import axios from 'axios';
+
+const response = await axios.get('https://your-domain.com/api/blog', {
+  params: {
+    page: 1,
+    per_page: 10
+  }
+});
+
+const posts = response.data.data;
+const pagination = response.data.meta;
+
+console.log(`Showing ${pagination.from}-${pagination.to} of ${pagination.total} posts`);
+```
+
+### PHP
+
+```php
+$response = Http::get('https://your-domain.com/api/blog', [
+    'page' => 1,
+    'per_page' => 10
+]);
+
+$posts = $response->json()['data'];
+
+foreach ($posts as $post) {
+    echo $post['name'] . " by " . $post['author']['name'] . "\n";
+}
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.get('https://your-domain.com/api/blog', params={
+    'page': 1,
+    'per_page': 10
+})
+
+data = response.json()
+
+for post in data['data']:
+    print(f"{post['name']} by {post['author']['name']}")
+
+print(f"Total posts: {data['meta']['total']}")
+```
+
+## Error Responses
+
+### 500 Internal Server Error
+
+If there's a server-side error:
+
+```json
+{
+  "message": "Server Error"
+}
+```
+
+## Related Resources
+
+- [API Overview](/api/overview) - General API information
+- [Authentication](/api/authentication) - For protected endpoints
+- [Users API](/api/users) - User data endpoint

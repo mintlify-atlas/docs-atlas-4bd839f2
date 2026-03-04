@@ -1,0 +1,424 @@
+---
+title: 'Events API'
+description: 'Events endpoints documentation'
+---
+
+# Events API
+
+The Events API would provide access to published events with their details, locations, pricing, and media.
+
+## Current Status
+
+<Warning>
+There are currently **no public API endpoints** implemented for events in `routes/api.php`.
+</Warning>
+
+However, the underlying infrastructure is in place to support event API endpoints:
+
+## Available Resources
+
+The codebase includes comprehensive event-related resources:
+
+### Models
+
+**Event Model** (`app/Models/Event.php`)
+
+The Event model includes these fields:
+
+- `id` - Unique identifier
+- `name` - Event name/title
+- `slug` - URL-friendly identifier
+- `summary` - Brief description
+- `content` - Detailed content (JSON array)
+- `is_free` - Whether the event is free (boolean)
+- `price` - Event price (float)
+- `percent_off` - Discount percentage (float)
+- `location` - Event location address
+- `lat` - Latitude coordinate (float)
+- `lng` - Longitude coordinate (float)
+- `registration_started_at` - Registration start datetime
+- `registration_ended_at` - Registration end datetime
+- `start_date` - Event start date
+- `end_date` - Event end date
+- `is_published` - Publication status (boolean)
+- `user_id` - Organizer/author user ID
+- `event_status_id` - Current event status ID
+- `created_at` - Creation timestamp
+- `updated_at` - Last update timestamp
+
+### Relationships
+
+```php
+// Event belongs to a user (organizer)
+public function author()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
+// Event has many activities
+public function activities()
+{
+    return $this->hasMany(EventActivity::class);
+}
+
+// Event belongs to a status
+public function status()
+{
+    return $this->belongsTo(EventStatus::class, 'event_status_id');
+}
+```
+
+### Media Collections
+
+Events support media using Spatie Media Library:
+
+**Collection:** `logo` (stored on S3, single file)
+
+**Conversions:**
+- `thumbnail` - 1080x1080px (square), quality 85%, cropped, with responsive images
+
+### API Resources
+
+Pre-built API resource classes are available:
+
+- `EventResource` - Transforms a single event
+- `EventCollection` - Transforms a collection of events
+
+### Related Models
+
+The event system includes extensive related models:
+
+- `EventStatus` - Event status types (draft, upcoming, open, closed, ongoing, finished, canceled)
+- `EventActivity` - Activities within events
+- `EventActivityType` - Activity type categorization
+- `EventActivityCategory` - Activity category classification
+- `EventActivityRegistration` - User registrations for activities
+- `EventActivityTeam` - Teams for team-based activities
+- `EventActivityTeamMember` - Team member assignments
+- `EventCollaborator` - Event collaborators/organizers
+- `EventRegistration` - User registrations for events
+
+## Potential Implementation
+
+To implement an events API endpoint similar to the blog API, you would:
+
+### 1. Create a Controller
+
+```php
+<?php
+
+namespace App\Http\Controllers\API;
+
+use App\Models\Event;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\EventCollection;
+
+class ApiEventController extends Controller
+{
+    public function __invoke(Request $request)
+    {
+        $events = Event::where('is_published', true)
+            ->with(['author', 'status', 'activities'])
+            ->orderBy('start_date', 'ASC')
+            ->paginate();
+
+        return new EventCollection($events);
+    }
+}
+```
+
+### 2. Add Route
+
+In `routes/api.php`:
+
+```php
+Route::get('/events', ApiEventController::class)->name('api.events');
+```
+
+### 3. Update EventResource
+
+Ensure the `EventResource` includes media transformations:
+
+```php
+public function toArray(Request $request): array
+{
+    $data = parent::toArray($request);
+
+    $data['media'] = $this->getMedia('logo')->map(
+        fn($m) =>
+        new MediaResource($m, 'thumbnail', [
+            'thumbnail' => ['width' => 1080, 'height' => 1080]
+        ])
+    );
+
+    return $data;
+}
+```
+
+## Expected Response Format
+
+Once implemented, a GET request to `/api/events` would return:
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Laravel Conference 2026",
+      "slug": "laravel-conference-2026",
+      "summary": "Annual Laravel developers conference with workshops and talks",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": "Join us for the biggest Laravel event of the year..."
+        }
+      ],
+      "is_free": false,
+      "price": 299.99,
+      "percent_off": 15.0,
+      "location": "Convention Center, Mexico City",
+      "lat": 19.4326,
+      "lng": -99.1332,
+      "registration_started_at": "2026-02-01 00:00:00",
+      "registration_ended_at": "2026-04-15 23:59:59",
+      "start_date": "2026-05-01",
+      "end_date": "2026-05-03",
+      "is_published": true,
+      "user_id": 1,
+      "event_status_id": 2,
+      "created_at": "2026-01-15T10:00:00.000000Z",
+      "updated_at": "2026-03-04T14:30:00.000000Z",
+      "author": {
+        "id": 1,
+        "name": "John",
+        "father_last_name": "Doe",
+        "mother_last_name": "Smith",
+        "email": "john@example.com",
+        "is_active": true
+      },
+      "status": {
+        "id": 2,
+        "name": "Open for Registration",
+        "slug": "open",
+        "created_at": "2026-01-01T00:00:00.000000Z",
+        "updated_at": "2026-01-01T00:00:00.000000Z"
+      },
+      "activities": [
+        {
+          "id": 1,
+          "name": "Keynote: The Future of Laravel",
+          "start_time": "2026-05-01 09:00:00",
+          "end_time": "2026-05-01 10:30:00"
+        },
+        {
+          "id": 2,
+          "name": "Workshop: Advanced Eloquent",
+          "start_time": "2026-05-01 11:00:00",
+          "end_time": "2026-05-01 13:00:00"
+        }
+      ],
+      "media": [
+        {
+          "id": 1,
+          "is_processed": true,
+          "urls": {
+            "thumbnail": "https://s3.amazonaws.com/bucket/logos/event-thumbnail.jpg",
+            "original": "https://s3.amazonaws.com/bucket/logos/event-original.jpg"
+          },
+          "dimensions": {
+            "thumbnail": {
+              "width": 1080,
+              "height": 1080
+            }
+          },
+          "responsive": {},
+          "custom_properties": {}
+        }
+      ]
+    }
+  ],
+  "links": {
+    "first": "https://your-domain.com/api/events?page=1",
+    "last": "https://your-domain.com/api/events?page=4",
+    "prev": null,
+    "next": "https://your-domain.com/api/events?page=2"
+  },
+  "meta": {
+    "current_page": 1,
+    "from": 1,
+    "last_page": 4,
+    "path": "https://your-domain.com/api/events",
+    "per_page": 15,
+    "to": 15,
+    "total": 52
+  }
+}
+```
+
+## Model Structure
+
+### Event Fields
+
+<ResponseField name="id" type="integer">
+  Unique event identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Event name/title
+</ResponseField>
+
+<ResponseField name="slug" type="string">
+  URL-friendly identifier (auto-generated from name)
+</ResponseField>
+
+<ResponseField name="summary" type="string">
+  Brief event description
+</ResponseField>
+
+<ResponseField name="content" type="array">
+  Detailed event content (structured JSON)
+</ResponseField>
+
+<ResponseField name="is_free" type="boolean">
+  Whether the event is free to attend
+</ResponseField>
+
+<ResponseField name="price" type="float">
+  Event ticket price (if not free)
+</ResponseField>
+
+<ResponseField name="percent_off" type="float">
+  Discount percentage applied to price
+</ResponseField>
+
+<ResponseField name="location" type="string">
+  Event venue address or location description
+</ResponseField>
+
+<ResponseField name="lat" type="float">
+  Latitude coordinate for the venue
+</ResponseField>
+
+<ResponseField name="lng" type="float">
+  Longitude coordinate for the venue
+</ResponseField>
+
+<ResponseField name="registration_started_at" type="datetime">
+  When registration opens (format: Y-m-d H:i:s)
+</ResponseField>
+
+<ResponseField name="registration_ended_at" type="datetime">
+  When registration closes (format: Y-m-d H:i:s)
+</ResponseField>
+
+<ResponseField name="start_date" type="date">
+  Event start date (format: Y-m-d)
+</ResponseField>
+
+<ResponseField name="end_date" type="date">
+  Event end date (format: Y-m-d)
+</ResponseField>
+
+<ResponseField name="is_published" type="boolean">
+  Publication status
+</ResponseField>
+
+<ResponseField name="user_id" type="integer">
+  ID of the event organizer/author
+</ResponseField>
+
+<ResponseField name="event_status_id" type="integer">
+  Current event status ID
+</ResponseField>
+
+## Event Status System
+
+Events can have different statuses tracked through the `EventStatus` model:
+
+- **Draft** - Event is being prepared
+- **Upcoming** - Event is scheduled but registration hasn't opened
+- **Open** - Registration is currently open
+- **Closed** - Registration has closed but event hasn't started
+- **Ongoing** - Event is currently happening
+- **Finished** - Event has concluded
+- **Canceled** - Event was canceled
+
+The model includes commented logic for automatically calculating event status based on dates:
+
+```php
+// Automatically determine status based on:
+// - Current datetime vs registration_started_at
+// - Current datetime vs registration_ended_at  
+// - Current datetime vs start_date
+// - Current datetime vs end_date
+```
+
+## Event Activities
+
+Events can have multiple activities (sessions, workshops, talks, competitions):
+
+### EventActivity Model
+
+Activities have their own:
+- Types (`EventActivityType`)
+- Categories (`EventActivityCategory`)
+- Registrations (`EventActivityRegistration`)
+- Teams (`EventActivityTeam`) with members
+
+## Pricing Calculation
+
+For paid events, the effective price can be calculated:
+
+```javascript
+// Calculate discounted price
+const originalPrice = event.price;
+const discount = event.percent_off;
+const finalPrice = originalPrice * (1 - discount / 100);
+
+// Example: $299.99 - 15% = $254.99
+```
+
+## User Integration
+
+Users can have relationships with events:
+
+### As Organizer
+
+```php
+// From User model
+public function events()
+{
+    return $this->hasMany(Event::class);
+}
+```
+
+## Query Filtering Ideas
+
+When implementing the API, consider adding filters:
+
+- `status` - Filter by event status
+- `is_free` - Show only free events
+- `upcoming` - Show only future events
+- `location` - Filter by location/region
+- `date_from` / `date_to` - Date range filtering
+- `price_max` - Maximum price filter
+
+## Next Steps
+
+To enable event API functionality:
+
+1. Create `ApiEventController` controller
+2. Add route to `routes/api.php`
+3. Update `EventResource` to include media transformations
+4. Add query parameter filtering (status, price, dates, location)
+5. Consider pagination customization
+6. Add specific event endpoint (e.g., `/api/events/{slug}`)
+7. Optionally add nested routes for activities
+8. Consider authentication requirements for registration endpoints
+
+## Related Resources
+
+- [API Overview](/api/overview) - General API information
+- [Blog API](/api/blog) - Similar implementation example
+- [Authentication](/api/authentication) - For protected endpoints

@@ -1,0 +1,511 @@
+---
+title: 'Running the Application'
+description: 'Learn how to run EduStack Smart in development mode with hot reload, queue workers, and Laravel Reverb'
+---
+
+## Quick Start
+
+The fastest way to start development is using the built-in dev command:
+
+```bash
+composer run dev
+```
+
+This single command starts:
+- PHP development server (`php artisan serve`)
+- Queue worker (`php artisan queue:listen`)
+- Vite dev server with hot reload (`pnpm run dev`)
+
+## Development Commands
+
+### Standard Development Mode
+
+```bash
+composer run dev
+```
+
+This command uses `concurrently` to run multiple processes with color-coded output:
+- **Blue (#93c5fd)** - PHP server on `http://localhost:8000`
+- **Purple (#c4b5fd)** - Queue worker
+- **Orange (#fdba74)** - Vite dev server
+
+### SSR Development Mode
+
+For Server-Side Rendering (SSR) with Inertia.js:
+
+```bash
+composer run dev:ssr
+```
+
+This includes all standard processes plus:
+- **Pink (#fb7185)** - Laravel Pail (real-time logs)
+- **Orange (#fdba74)** - Inertia SSR server
+
+<Info>
+SSR mode automatically kills all processes if one fails (`--kill-others` flag).
+</Info>
+
+## Running Services Individually
+
+For more control, run each service in separate terminal windows:
+
+### PHP Development Server
+
+```bash
+php artisan serve
+```
+
+By default, starts on `http://localhost:8000`. Change the port:
+
+```bash
+php artisan serve --port=8001
+```
+
+Change the host:
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+### Vite Development Server
+
+```bash
+pnpm run dev
+```
+
+Vite provides:
+- **Hot Module Replacement (HMR)** - Instant updates without page reload
+- **Fast refresh** - Preserves React component state
+- **TypeScript support** - Type checking and compilation
+- **Tailwind CSS JIT** - Just-in-time CSS compilation
+
+Vite runs on `http://localhost:5173` by default.
+
+### Queue Workers
+
+```bash
+php artisan queue:listen
+```
+
+For production-like behavior (with auto-reload on code changes):
+
+```bash
+php artisan queue:work
+```
+
+With specific queue and connection:
+
+```bash
+php artisan queue:listen --queue=high,default --tries=3
+```
+
+Options:
+- `--tries=1` - Number of attempts before job fails
+- `--timeout=60` - Maximum job execution time
+- `--sleep=3` - Seconds to sleep when no jobs available
+- `--memory=128` - Memory limit in MB
+
+### Laravel Pail (Log Viewer)
+
+```bash
+php artisan pail
+```
+
+Real-time log monitoring with color-coded output. Options:
+
+```bash
+# Filter by log level
+php artisan pail --filter=error
+php artisan pail --filter=warning,error
+
+# Filter by message content
+php artisan pail --message="User"
+
+# Disable timeout
+php artisan pail --timeout=0
+```
+
+### Laravel Reverb (WebSocket Server)
+
+For real-time broadcasting:
+
+```bash
+php artisan reverb:start
+```
+
+With debugging:
+
+```bash
+php artisan reverb:start --debug
+```
+
+Reverb configuration in `config/broadcasting.php`:
+
+```php
+'reverb' => [
+    'driver' => 'reverb',
+    'key' => env('REVERB_APP_KEY'),
+    'secret' => env('REVERB_APP_SECRET'),
+    'app_id' => env('REVERB_APP_ID'),
+    'options' => [
+        'host' => env('REVERB_HOST', '0.0.0.0'),
+        'port' => env('REVERB_PORT', 8080),
+        'scheme' => env('REVERB_SCHEME', 'http'),
+    ],
+],
+```
+
+## Hot Module Replacement (HMR)
+
+### How HMR Works
+
+Vite's HMR updates modules in the browser without a full page reload:
+
+1. **File Change Detection** - Vite watches for file changes
+2. **Module Update** - Changed module is sent to the browser
+3. **State Preservation** - React component state is preserved
+4. **Instant Feedback** - See changes in milliseconds
+
+### HMR Configuration
+
+Configured in `vite.config.ts`:
+
+```typescript
+export default defineConfig({
+    plugins: [
+        laravel({
+            input: ['resources/css/app.css', 'resources/js/app.tsx'],
+            ssr: 'resources/js/ssr.tsx',
+            refresh: true, // Auto-refresh on Blade changes
+        }),
+        react(),
+        tailwindcss(),
+        wayfinder({
+            formVariants: true,
+        }),
+    ],
+});
+```
+
+### What Triggers HMR
+
+- **React Components** (`.tsx`, `.jsx`) - Fast refresh with state preservation
+- **CSS Files** (`.css`) - Style updates without reload
+- **TypeScript Files** (`.ts`) - Module replacement
+- **Blade Templates** (`.blade.php`) - Full page reload (when `refresh: true`)
+
+### HMR Limitations
+
+- **PHP Changes** - Require server restart (handled by `queue:listen`)
+- **Configuration Changes** - May require cache clear
+- **Database Migrations** - Run manually with `php artisan migrate`
+- **Environment Variables** - Require server restart
+
+## Frontend Development
+
+### NPM Scripts
+
+Available in `package.json`:
+
+```bash
+# Development server with HMR
+pnpm run dev
+
+# Production build
+pnpm run build
+
+# SSR build (client + server)
+pnpm run build:ssr
+
+# Code formatting
+pnpm run format
+
+# Format check (CI)
+pnpm run format:check
+
+# Linting with auto-fix
+pnpm run lint
+
+# TypeScript type checking
+pnpm run types
+```
+
+### Building for Production
+
+```bash
+# Standard build
+pnpm run build
+
+# SSR build (recommended for production)
+pnpm run build:ssr
+```
+
+Outputs to `public/build/` directory.
+
+## Queue Workers in Development
+
+### Queue Configuration
+
+In `.env`:
+
+```env
+QUEUE_CONNECTION=database
+```
+
+Queue tables are created during migration:
+
+```bash
+php artisan queue:table
+php artisan migrate
+```
+
+### Running Queue Workers
+
+**Development (auto-reload on code changes):**
+
+```bash
+php artisan queue:listen --tries=1
+```
+
+**Production-like (better performance):**
+
+```bash
+php artisan queue:work
+```
+
+### Queue Monitoring
+
+View failed jobs:
+
+```bash
+php artisan queue:failed
+```
+
+Retry failed jobs:
+
+```bash
+php artisan queue:retry all
+```
+
+Clear failed jobs:
+
+```bash
+php artisan queue:flush
+```
+
+## Broadcasting with Reverb
+
+### Starting Reverb
+
+```bash
+php artisan reverb:start
+```
+
+### Frontend Configuration
+
+Laravel Echo is configured in `resources/js/echo.ts`:
+
+```typescript
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
+
+window.Pusher = Pusher;
+
+window.Echo = new Echo({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT,
+    forceTLS: false,
+    enabledTransports: ['ws', 'wss'],
+});
+```
+
+### Testing Broadcasting
+
+Listen to a channel:
+
+```typescript
+Echo.channel('notifications')
+    .listen('NotificationSent', (e) => {
+        console.log(e.notification);
+    });
+```
+
+Dispatch an event:
+
+```php
+broadcast(new NotificationSent($notification));
+```
+
+## Database Operations
+
+### Migrations
+
+```bash
+# Run pending migrations
+php artisan migrate
+
+# Rollback last migration
+php artisan migrate:rollback
+
+# Reset and re-run all migrations
+php artisan migrate:fresh
+
+# Migrate and seed
+php artisan migrate:fresh --seed
+```
+
+### Seeders
+
+```bash
+# Run all seeders
+php artisan db:seed
+
+# Run specific seeder
+php artisan db:seed --class=UserSeeder
+```
+
+## Artisan Commands
+
+### Common Development Commands
+
+```bash
+# Clear application cache
+php artisan cache:clear
+
+# Clear configuration cache
+php artisan config:clear
+
+# Clear route cache
+php artisan route:clear
+
+# Clear view cache
+php artisan view:clear
+
+# Clear all caches
+php artisan optimize:clear
+```
+
+### IDE Helper Commands
+
+```bash
+# Generate IDE helper files
+php artisan ide-helper:generate
+
+# Generate model helpers
+php artisan ide-helper:models
+
+# Generate meta file
+php artisan ide-helper:meta
+```
+
+## Environment Switching
+
+Switch between environments:
+
+```bash
+# Development
+cp .env.local .env
+php artisan config:clear
+
+# Testing
+cp .env.testing .env
+php artisan config:clear
+
+# Production
+cp .env.production .env
+php artisan config:cache
+```
+
+## Performance Tips
+
+### Development Performance
+
+1. **Use SQLite** - Faster than MySQL for development
+2. **Disable Xdebug** - When not debugging (significant speed boost)
+3. **Use Queue:listen** - Auto-reloads on code changes
+4. **Enable Opcache** - Caches compiled PHP code
+
+### Opcache Configuration
+
+Add to `php.ini`:
+
+```ini
+opcache.enable=1
+opcache.memory_consumption=128
+opcache.interned_strings_buffer=8
+opcache.max_accelerated_files=4000
+opcache.revalidate_freq=2
+```
+
+## Debugging Tools
+
+### Laravel Telescope (Optional)
+
+For advanced debugging:
+
+```bash
+composer require laravel/telescope --dev
+php artisan telescope:install
+php artisan migrate
+```
+
+Access at `http://localhost:8000/telescope`.
+
+### Ray (Optional)
+
+For beautiful debugging:
+
+```bash
+composer require spatie/laravel-ray --dev
+```
+
+Use in code:
+
+```php
+ray($variable);
+ray('Debug message')->red();
+```
+
+## Troubleshooting
+
+### Port Already in Use
+
+```bash
+# Find process using port 8000
+lsof -i :8000
+
+# Kill process
+kill -9 <PID>
+
+# Or use different port
+php artisan serve --port=8001
+```
+
+### HMR Not Working
+
+1. Check Vite is running: `pnpm run dev`
+2. Clear browser cache
+3. Check `vite.config.ts` configuration
+4. Restart Vite server
+
+### Queue Jobs Not Processing
+
+1. Check queue connection: `QUEUE_CONNECTION=database` in `.env`
+2. Verify queue worker is running
+3. Check for failed jobs: `php artisan queue:failed`
+4. Clear cache: `php artisan cache:clear`
+
+### Reverb Connection Issues
+
+1. Ensure Reverb is running: `php artisan reverb:start`
+2. Check WebSocket port (default 8080) is not blocked
+3. Verify environment variables for Reverb
+4. Check browser console for connection errors
+
+## Next Steps
+
+- Learn about [Testing](/development/testing) to write and run tests
+- Review [Environment Variables](/development/environment) for configuration
+- Explore [Setup Guide](/development/setup) for additional tools

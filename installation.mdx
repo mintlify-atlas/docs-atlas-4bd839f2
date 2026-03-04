@@ -1,0 +1,1093 @@
+---
+title: Installation Guide
+description: Detailed installation instructions for EduStack Smart covering development and production environments
+---
+
+# Installation Guide
+
+This comprehensive guide covers installing EduStack Smart for both development and production environments. Follow these instructions to deploy a fully functional academic management platform.
+
+<Info>
+  For a quick development setup, see the [Quick Start Guide](/quickstart). This guide provides more detailed instructions for various deployment scenarios.
+</Info>
+
+## System Requirements
+
+### Minimum Requirements
+
+#### Server Requirements
+
+- **Operating System**: Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+) or macOS
+- **Web Server**: Nginx 1.18+ or Apache 2.4+
+- **PHP**: 8.2 or higher (8.3 recommended)
+- **Database**: PostgreSQL 13+ or SQLite 3.35+
+- **Memory**: 2GB RAM minimum, 4GB+ recommended
+- **Storage**: 10GB minimum, SSD recommended
+- **Node.js**: 18.x or higher
+- **Process Manager**: Supervisor or systemd (for queue workers)
+
+#### PHP Extensions
+
+The following PHP extensions are required:
+
+<CodeGroup>
+```bash Ubuntu/Debian
+sudo apt-get install -y \
+  php8.3-cli \
+  php8.3-fpm \
+  php8.3-mbstring \
+  php8.3-xml \
+  php8.3-curl \
+  php8.3-zip \
+  php8.3-gd \
+  php8.3-pgsql \
+  php8.3-sqlite3 \
+  php8.3-redis \
+  php8.3-bcmath \
+  php8.3-intl
+```
+
+```bash CentOS/RHEL
+sudo yum install -y \
+  php83-cli \
+  php83-fpm \
+  php83-mbstring \
+  php83-xml \
+  php83-curl \
+  php83-zip \
+  php83-gd \
+  php83-pgsql \
+  php83-sqlite3 \
+  php83-redis \
+  php83-bcmath \
+  php83-intl
+```
+
+```bash macOS (Homebrew)
+brew install php@8.3
+brew install postgresql@15
+brew install redis
+```
+</CodeGroup>
+
+#### Additional Software
+
+- **Composer**: 2.5+ (PHP dependency manager)
+- **pnpm**: 8.0+ (Node.js package manager, faster than npm)
+- **Git**: 2.30+ (version control)
+- **Redis**: 6.0+ (optional, for caching and sessions)
+
+### Recommended Production Requirements
+
+- **CPU**: 4+ cores
+- **Memory**: 8GB+ RAM
+- **Storage**: 50GB+ SSD
+- **PostgreSQL**: 14+ with dedicated server
+- **Redis**: Separate Redis instance for caching
+- **CDN**: CloudFlare or AWS CloudFront for static assets
+- **SSL Certificate**: Let's Encrypt or commercial SSL
+
+<Warning>
+  Do not use SQLite in production. PostgreSQL is strongly recommended for production deployments.
+</Warning>
+
+## Prerequisites Installation
+
+### Installing PHP 8.3
+
+<Tabs>
+  <Tab title="Ubuntu 22.04/24.04">
+    ```bash
+    sudo add-apt-repository ppa:ondrej/php -y
+    sudo apt-get update
+    sudo apt-get install -y php8.3 php8.3-fpm php8.3-cli \
+      php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip \
+      php8.3-gd php8.3-pgsql php8.3-sqlite3 php8.3-redis \
+      php8.3-bcmath php8.3-intl
+    
+    # Verify installation
+    php -v
+    ```
+  </Tab>
+  
+  <Tab title="Debian 11/12">
+    ```bash
+    sudo apt-get install -y lsb-release ca-certificates apt-transport-https software-properties-common
+    sudo add-apt-repository ppa:ondrej/php -y
+    sudo apt-get update
+    sudo apt-get install -y php8.3 php8.3-fpm php8.3-cli \
+      php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip \
+      php8.3-gd php8.3-pgsql php8.3-redis php8.3-bcmath php8.3-intl
+    
+    php -v
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    brew tap shivammathur/php
+    brew install shivammathur/php/php@8.3
+    brew link --overwrite --force php@8.3
+    
+    # Verify installation
+    php -v
+    ```
+  </Tab>
+</Tabs>
+
+### Installing Composer
+
+```bash
+php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+php composer-setup.php
+php -r "unlink('composer-setup.php');"
+sudo mv composer.phar /usr/local/bin/composer
+
+# Verify installation
+composer --version
+```
+
+### Installing Node.js and pnpm
+
+<Tabs>
+  <Tab title="Using NVM (Recommended)">
+    ```bash
+    # Install NVM
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    
+    # Reload shell
+    source ~/.bashrc  # or ~/.zshrc
+    
+    # Install Node.js 20 LTS
+    nvm install 20
+    nvm use 20
+    
+    # Install pnpm
+    npm install -g pnpm
+    
+    # Verify installations
+    node --version
+    pnpm --version
+    ```
+  </Tab>
+  
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    # NodeSource repository
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    
+    # Install pnpm
+    npm install -g pnpm
+    
+    node --version
+    pnpm --version
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    brew install node@20
+    npm install -g pnpm
+    
+    node --version
+    pnpm --version
+    ```
+  </Tab>
+</Tabs>
+
+### Installing PostgreSQL
+
+<Tabs>
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    # Install PostgreSQL 15
+    sudo apt-get install -y postgresql-15 postgresql-contrib
+    
+    # Start PostgreSQL
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+    
+    # Create database and user
+    sudo -u postgres psql << EOF
+    CREATE DATABASE edustack_smart;
+    CREATE USER edustack_user WITH ENCRYPTED PASSWORD 'secure_password';
+    GRANT ALL PRIVILEGES ON DATABASE edustack_smart TO edustack_user;
+    \q
+    EOF
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    brew install postgresql@15
+    brew services start postgresql@15
+    
+    # Create database
+    createdb edustack_smart
+    ```
+  </Tab>
+  
+  <Tab title="Docker">
+    ```bash
+    docker run -d \
+      --name edustack-postgres \
+      -e POSTGRES_DB=edustack_smart \
+      -e POSTGRES_USER=edustack_user \
+      -e POSTGRES_PASSWORD=secure_password \
+      -p 5432:5432 \
+      -v edustack_pgdata:/var/lib/postgresql/data \
+      postgres:15-alpine
+    ```
+  </Tab>
+</Tabs>
+
+### Installing Redis (Optional but Recommended)
+
+<Tabs>
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    sudo apt-get install -y redis-server
+    sudo systemctl start redis
+    sudo systemctl enable redis
+    
+    # Test Redis
+    redis-cli ping
+    # Should return: PONG
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    brew install redis
+    brew services start redis
+    
+    redis-cli ping
+    ```
+  </Tab>
+  
+  <Tab title="Docker">
+    ```bash
+    docker run -d \
+      --name edustack-redis \
+      -p 6379:6379 \
+      redis:7-alpine
+    ```
+  </Tab>
+</Tabs>
+
+## Application Installation
+
+### Step 1: Clone Repository
+
+```bash
+# Navigate to your web root or projects directory
+cd /var/www  # or ~/projects for development
+
+# Clone the repository
+git clone <repository-url> edustack-smart
+cd edustack-smart
+
+# Set proper ownership (production)
+sudo chown -R www-data:www-data /var/www/edustack-smart
+```
+
+### Step 2: Install Dependencies
+
+<Steps>
+  <Step title="Install PHP Dependencies">
+    ```bash
+    composer install --optimize-autoloader --no-dev
+    ```
+    
+    <Note>
+      For development, omit the `--no-dev` flag to include development dependencies like Pest and Laravel Pint.
+    </Note>
+    
+    This installs:
+    - **Laravel Framework 12**: Core framework
+    - **Laravel Sanctum**: SPA authentication
+    - **Laravel Reverb**: WebSocket server
+    - **Inertia.js**: Server-side adapter
+    - **Spatie MediaLibrary**: Media management
+    - **Spatie Permission**: Role-based access control
+    - **AWS SDK**: Cloud storage support
+  </Step>
+  
+  <Step title="Install Node Dependencies">
+    ```bash
+    pnpm install --frozen-lockfile
+    ```
+    
+    This installs:
+    - **React 19**: UI library
+    - **TypeScript**: Type safety
+    - **Inertia.js React**: Frontend adapter
+    - **Tailwind CSS 4**: Utility-first CSS
+    - **Radix UI**: Accessible components
+    - **Vite 7**: Build tool
+    - **TipTap**: Rich text editor
+    - **React Query**: Data fetching
+  </Step>
+</Steps>
+
+### Step 3: Environment Configuration
+
+<Steps>
+  <Step title="Create Environment File">
+    ```bash
+    cp .env.example .env
+    ```
+  </Step>
+  
+  <Step title="Generate Application Key">
+    ```bash
+    php artisan key:generate
+    ```
+    
+    This generates a secure encryption key for the application.
+  </Step>
+  
+  <Step title="Configure Environment Variables">
+    Edit `.env` with your production settings:
+    
+    ```bash .env
+    # Application
+    APP_NAME="EduStack Smart"
+    APP_ENV=production
+    APP_KEY=base64:YOUR_GENERATED_KEY
+    APP_DEBUG=false
+    APP_URL=https://your-domain.com
+    
+    # Locale
+    APP_LOCALE=en
+    APP_FALLBACK_LOCALE=en
+    
+    # Database
+    DB_CONNECTION=pgsql
+    DB_HOST=127.0.0.1
+    DB_PORT=5432
+    DB_DATABASE=edustack_smart
+    DB_USERNAME=edustack_user
+    DB_PASSWORD=your_secure_password
+    
+    # Redis Cache (recommended)
+    CACHE_STORE=redis
+    REDIS_CLIENT=phpredis
+    REDIS_HOST=127.0.0.1
+    REDIS_PASSWORD=null
+    REDIS_PORT=6379
+    
+    # Session
+    SESSION_DRIVER=redis
+    SESSION_LIFETIME=120
+    
+    # Queue
+    QUEUE_CONNECTION=redis
+    
+    # Broadcasting (WebSockets)
+    BROADCAST_CONNECTION=reverb
+    
+    # Reverb Configuration
+    REVERB_APP_ID=your_app_id
+    REVERB_APP_KEY=your_app_key
+    REVERB_APP_SECRET=your_app_secret
+    REVERB_HOST=your-domain.com
+    REVERB_PORT=443
+    REVERB_SCHEME=https
+    
+    # File Storage
+    FILESYSTEM_DISK=local
+    MEDIA_DISK=public
+    
+    # AWS S3 (optional)
+    AWS_ACCESS_KEY_ID=
+    AWS_SECRET_ACCESS_KEY=
+    AWS_DEFAULT_REGION=us-east-1
+    AWS_BUCKET=
+    
+    # Mail
+    MAIL_MAILER=smtp
+    MAIL_HOST=smtp.mailtrap.io
+    MAIL_PORT=2525
+    MAIL_USERNAME=your_username
+    MAIL_PASSWORD=your_password
+    MAIL_FROM_ADDRESS="noreply@your-domain.com"
+    MAIL_FROM_NAME="${APP_NAME}"
+    
+    # Logging
+    LOG_CHANNEL=stack
+    LOG_LEVEL=error
+    ```
+    
+    <Warning>
+      Always set `APP_DEBUG=false` in production to prevent sensitive information leakage.
+    </Warning>
+  </Step>
+</Steps>
+
+### Step 4: Set File Permissions
+
+<Tabs>
+  <Tab title="Nginx/Apache">
+    ```bash
+    # Set ownership to web server user
+    sudo chown -R www-data:www-data /var/www/edustack-smart
+    
+    # Set directory permissions
+    sudo find /var/www/edustack-smart -type d -exec chmod 755 {} \;
+    
+    # Set file permissions
+    sudo find /var/www/edustack-smart -type f -exec chmod 644 {} \;
+    
+    # Make storage and cache writable
+    sudo chmod -R 775 /var/www/edustack-smart/storage
+    sudo chmod -R 775 /var/www/edustack-smart/bootstrap/cache
+    ```
+  </Tab>
+  
+  <Tab title="Development">
+    ```bash
+    chmod -R 775 storage
+    chmod -R 775 bootstrap/cache
+    ```
+  </Tab>
+</Tabs>
+
+### Step 5: Database Setup
+
+<Steps>
+  <Step title="Run Migrations">
+    ```bash
+    php artisan migrate --force
+    ```
+    
+    The `--force` flag is required in production. This creates:
+    - Users table with two-factor authentication
+    - Roles and permissions tables
+    - Posts, categories, and types tables
+    - Projects and collaborators tables
+    - Events and activities tables
+    - Media library tables
+    - Cache, sessions, and jobs tables
+  </Step>
+  
+  <Step title="Create Storage Link">
+    ```bash
+    php artisan storage:link
+    ```
+    
+    This creates a symbolic link from `public/storage` to `storage/app/public`.
+  </Step>
+  
+  <Step title="Seed Default Data (Optional)">
+    ```bash
+    php artisan db:seed --class=ProductionSeeder
+    ```
+    
+    Seeds:
+    - Default roles and permissions
+    - Admin user account
+    - Basic configuration
+    
+    <Info>
+      For development with sample data, use `php artisan db:seed` without the class parameter.
+    </Info>
+  </Step>
+</Steps>
+
+### Step 6: Build Frontend Assets
+
+<Tabs>
+  <Tab title="Production Build">
+    ```bash
+    pnpm run build
+    ```
+    
+    This compiles and optimizes:
+    - React components
+    - TypeScript code
+    - Tailwind CSS
+    - Static assets
+    
+    Output is written to `public/build/`.
+  </Tab>
+  
+  <Tab title="SSR Build (Optional)">
+    ```bash
+    pnpm run build:ssr
+    ```
+    
+    Includes server-side rendering support for Inertia.js.
+  </Tab>
+</Tabs>
+
+### Step 7: Optimize Application
+
+```bash
+# Cache configuration
+php artisan config:cache
+
+# Cache routes
+php artisan route:cache
+
+# Cache views
+php artisan view:cache
+
+# Cache events
+php artisan event:cache
+
+# Optimize autoloader
+composer dump-autoload --optimize
+```
+
+<Note>
+  Run these optimization commands after every deployment to ensure maximum performance.
+</Note>
+
+## Web Server Configuration
+
+### Nginx Configuration
+
+<CodeGroup>
+```nginx /etc/nginx/sites-available/edustack-smart
+server {
+    listen 80;
+    listen [::]:80;
+    server_name your-domain.com www.your-domain.com;
+    
+    # Redirect to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name your-domain.com www.your-domain.com;
+    
+    root /var/www/edustack-smart/public;
+    index index.php index.html;
+    
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
+    # Logging
+    access_log /var/log/nginx/edustack-access.log;
+    error_log /var/log/nginx/edustack-error.log;
+    
+    # Gzip Compression
+    gzip on;
+    gzip_vary on;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+    
+    # Main location
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+    
+    # PHP-FPM
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
+    }
+    
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+    
+    # Static files caching
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+```bash Enable Site
+# Enable site
+sudo ln -s /etc/nginx/sites-available/edustack-smart /etc/nginx/sites-enabled/
+
+# Test configuration
+sudo nginx -t
+
+# Restart Nginx
+sudo systemctl restart nginx
+```
+</CodeGroup>
+
+### Apache Configuration
+
+<CodeGroup>
+```apache /etc/apache2/sites-available/edustack-smart.conf
+<VirtualHost *:80>
+    ServerName your-domain.com
+    ServerAlias www.your-domain.com
+    
+    # Redirect to HTTPS
+    Redirect permanent / https://your-domain.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName your-domain.com
+    ServerAlias www.your-domain.com
+    
+    DocumentRoot /var/www/edustack-smart/public
+    
+    <Directory /var/www/edustack-smart/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    # SSL Configuration
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/your-domain.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/your-domain.com/privkey.pem
+    
+    # Security Headers
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/edustack-error.log
+    CustomLog ${APACHE_LOG_DIR}/edustack-access.log combined
+</VirtualHost>
+```
+
+```bash Enable Site
+# Enable required modules
+sudo a2enmod rewrite ssl headers
+
+# Enable site
+sudo a2ensite edustack-smart.conf
+
+# Test configuration
+sudo apache2ctl configtest
+
+# Restart Apache
+sudo systemctl restart apache2
+```
+</CodeGroup>
+
+## Queue Worker Setup
+
+### Using Supervisor (Recommended)
+
+<Steps>
+  <Step title="Install Supervisor">
+    ```bash
+    sudo apt-get install -y supervisor
+    ```
+  </Step>
+  
+  <Step title="Create Configuration">
+    Create `/etc/supervisor/conf.d/edustack-worker.conf`:
+    
+    ```ini
+    [program:edustack-worker]
+    process_name=%(program_name)s_%(process_num)02d
+    command=php /var/www/edustack-smart/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    autostart=true
+    autorestart=true
+    stopasgroup=true
+    killasgroup=true
+    user=www-data
+    numprocs=4
+    redirect_stderr=true
+    stdout_logfile=/var/www/edustack-smart/storage/logs/worker.log
+    stopwaitsecs=3600
+    ```
+  </Step>
+  
+  <Step title="Start Worker">
+    ```bash
+    sudo supervisorctl reread
+    sudo supervisorctl update
+    sudo supervisorctl start edustack-worker:*
+    
+    # Check status
+    sudo supervisorctl status
+    ```
+  </Step>
+</Steps>
+
+### Using Systemd
+
+<Accordion title="Alternative: systemd Service">
+  Create `/etc/systemd/system/edustack-worker.service`:
+  
+  ```ini
+  [Unit]
+  Description=EduStack Smart Queue Worker
+  After=network.target
+  
+  [Service]
+  Type=simple
+  User=www-data
+  WorkingDirectory=/var/www/edustack-smart
+  ExecStart=/usr/bin/php /var/www/edustack-smart/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+  Restart=always
+  RestartSec=3
+  
+  [Install]
+  WantedBy=multi-user.target
+  ```
+  
+  Enable and start:
+  ```bash
+  sudo systemctl daemon-reload
+  sudo systemctl enable edustack-worker
+  sudo systemctl start edustack-worker
+  sudo systemctl status edustack-worker
+  ```
+</Accordion>
+
+## Laravel Reverb Setup (WebSockets)
+
+<Steps>
+  <Step title="Configure Reverb">
+    Update `.env` with Reverb settings:
+    
+    ```bash .env
+    BROADCAST_CONNECTION=reverb
+    
+    REVERB_APP_ID=edustack
+    REVERB_APP_KEY=$(openssl rand -hex 16)
+    REVERB_APP_SECRET=$(openssl rand -hex 32)
+    REVERB_HOST=your-domain.com
+    REVERB_PORT=8080
+    REVERB_SCHEME=https
+    ```
+  </Step>
+  
+  <Step title="Create Supervisor Config">
+    Create `/etc/supervisor/conf.d/edustack-reverb.conf`:
+    
+    ```ini
+    [program:edustack-reverb]
+    command=php /var/www/edustack-smart/artisan reverb:start
+    autostart=true
+    autorestart=true
+    user=www-data
+    redirect_stderr=true
+    stdout_logfile=/var/www/edustack-smart/storage/logs/reverb.log
+    ```
+    
+    Start the service:
+    ```bash
+    sudo supervisorctl reread
+    sudo supervisorctl update
+    sudo supervisorctl start edustack-reverb
+    ```
+  </Step>
+  
+  <Step title="Configure Nginx Proxy">
+    Add to your Nginx server block:
+    
+    ```nginx
+    # WebSocket proxy for Laravel Reverb
+    location /app {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+    ```
+    
+    Reload Nginx:
+    ```bash
+    sudo nginx -t && sudo systemctl reload nginx
+    ```
+  </Step>
+</Steps>
+
+## SSL Certificate Setup
+
+### Using Let's Encrypt (Free)
+
+```bash
+# Install Certbot
+sudo apt-get install -y certbot python3-certbot-nginx
+
+# Obtain certificate
+sudo certbot --nginx -d your-domain.com -d www.your-domain.com
+
+# Test automatic renewal
+sudo certbot renew --dry-run
+```
+
+Certbot automatically configures Nginx and sets up auto-renewal.
+
+## Task Scheduling
+
+Add Laravel scheduler to cron:
+
+```bash
+sudo crontab -e -u www-data
+```
+
+Add this line:
+
+```cron
+* * * * * cd /var/www/edustack-smart && php artisan schedule:run >> /dev/null 2>&1
+```
+
+## Post-Installation
+
+### Security Checklist
+
+<Steps>
+  <Step title="Verify Permissions">
+    ```bash
+    # Ensure sensitive files are not world-readable
+    chmod 600 /var/www/edustack-smart/.env
+    chmod 644 /var/www/edustack-smart/composer.json
+    ```
+  </Step>
+  
+  <Step title="Enable Firewall">
+    ```bash
+    sudo ufw allow 'Nginx Full'
+    sudo ufw allow OpenSSH
+    sudo ufw enable
+    ```
+  </Step>
+  
+  <Step title="Disable Unnecessary Services">
+    ```bash
+    # Remove or disable unused PHP modules
+    # Configure fail2ban for brute-force protection
+    sudo apt-get install -y fail2ban
+    sudo systemctl enable fail2ban
+    ```
+  </Step>
+</Steps>
+
+### Performance Optimization
+
+```bash
+# Enable OPcache
+sudo nano /etc/php/8.3/fpm/php.ini
+```
+
+Add/modify:
+
+```ini php.ini
+opcache.enable=1
+opcache.memory_consumption=256
+opcache.interned_strings_buffer=16
+opcache.max_accelerated_files=10000
+opcache.validate_timestamps=0
+opcache.save_comments=1
+opcache.fast_shutdown=1
+```
+
+Restart PHP-FPM:
+
+```bash
+sudo systemctl restart php8.3-fpm
+```
+
+## Maintenance & Updates
+
+### Updating EduStack Smart
+
+```bash
+cd /var/www/edustack-smart
+
+# Enable maintenance mode
+php artisan down
+
+# Pull latest changes
+git pull origin main
+
+# Update dependencies
+composer install --optimize-autoloader --no-dev
+pnpm install --frozen-lockfile
+
+# Run migrations
+php artisan migrate --force
+
+# Rebuild assets
+pnpm run build
+
+# Clear and recache
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# Restart services
+sudo supervisorctl restart edustack-worker:*
+sudo supervisorctl restart edustack-reverb
+
+# Disable maintenance mode
+php artisan up
+```
+
+### Backup Strategy
+
+<Tabs>
+  <Tab title="Database Backup">
+    ```bash
+    # Manual backup
+    pg_dump -U edustack_user edustack_smart > backup-$(date +%Y%m%d).sql
+    
+    # Automated daily backup (cron)
+    0 2 * * * pg_dump -U edustack_user edustack_smart | gzip > /backups/edustack-$(date +\%Y\%m\%d).sql.gz
+    ```
+  </Tab>
+  
+  <Tab title="File Backup">
+    ```bash
+    # Backup storage directory
+    tar -czf storage-backup-$(date +%Y%m%d).tar.gz storage/
+    
+    # Backup entire application
+    tar -czf edustack-backup-$(date +%Y%m%d).tar.gz \
+      --exclude='node_modules' \
+      --exclude='vendor' \
+      --exclude='.git' \
+      /var/www/edustack-smart
+    ```
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="500 Internal Server Error">
+    Check logs:
+    ```bash
+    tail -f /var/www/edustack-smart/storage/logs/laravel.log
+    tail -f /var/log/nginx/edustack-error.log
+    ```
+    
+    Common causes:
+    - Permissions issues on `storage/` or `bootstrap/cache/`
+    - Missing `.env` file or `APP_KEY`
+    - Database connection issues
+  </Accordion>
+  
+  <Accordion title="Queue Jobs Not Processing">
+    Check worker status:
+    ```bash
+    sudo supervisorctl status edustack-worker:*
+    ```
+    
+    View worker logs:
+    ```bash
+    tail -f /var/www/edustack-smart/storage/logs/worker.log
+    ```
+    
+    Restart workers:
+    ```bash
+    php artisan queue:restart
+    sudo supervisorctl restart edustack-worker:*
+    ```
+  </Accordion>
+  
+  <Accordion title="WebSocket Connection Failed">
+    Check Reverb is running:
+    ```bash
+    sudo supervisorctl status edustack-reverb
+    ```
+    
+    Test WebSocket connection:
+    ```bash
+    curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: test" http://localhost:8080/app/edustack
+    ```
+  </Accordion>
+  
+  <Accordion title="Permission Denied Errors">
+    Reset permissions:
+    ```bash
+    sudo chown -R www-data:www-data /var/www/edustack-smart
+    sudo chmod -R 755 /var/www/edustack-smart
+    sudo chmod -R 775 /var/www/edustack-smart/storage
+    sudo chmod -R 775 /var/www/edustack-smart/bootstrap/cache
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Environment-Specific Configuration
+
+### Development Environment
+
+```bash .env
+APP_ENV=local
+APP_DEBUG=true
+DB_CONNECTION=sqlite
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+BROADCAST_CONNECTION=log
+```
+
+Start development servers:
+
+```bash
+composer dev
+```
+
+### Staging Environment
+
+```bash .env
+APP_ENV=staging
+APP_DEBUG=true
+DB_CONNECTION=pgsql
+CACHE_STORE=redis
+QUEUE_CONNECTION=redis
+LOG_LEVEL=debug
+```
+
+### Production Environment
+
+```bash .env
+APP_ENV=production
+APP_DEBUG=false
+DB_CONNECTION=pgsql
+CACHE_STORE=redis
+QUEUE_CONNECTION=redis
+LOG_LEVEL=error
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Configuration" icon="gear" href="/development/environment">
+    Configure application settings
+  </Card>
+  
+  <Card title="User Management" icon="users" href="/guides/admin">
+    Set up users and roles
+  </Card>
+  
+  <Card title="API Documentation" icon="code" href="/api/overview">
+    Explore the API endpoints
+  </Card>
+  
+  <Card title="Running the Application" icon="play" href="/development/running">
+    Start and manage the application
+  </Card>
+</CardGroup>
+
+---
+
+**Need help?** Contact support or consult the [Troubleshooting](#troubleshooting) section for common issues.

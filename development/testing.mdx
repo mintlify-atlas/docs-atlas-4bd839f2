@@ -1,0 +1,608 @@
+---
+title: 'Testing'
+description: 'Comprehensive guide to testing EduStack Smart with Pest PHP'
+---
+
+## Overview
+
+EduStack Smart uses **Pest PHP** for testing - an elegant testing framework built on top of PHPUnit with a focus on simplicity and readability.
+
+## Quick Start
+
+Run all tests:
+
+```bash
+composer run test
+```
+
+Or use the artisan command directly:
+
+```bash
+php artisan test
+```
+
+## Test Structure
+
+Tests are organized in the `tests/` directory:
+
+```
+tests/
+├── Feature/              # Feature tests (full application)
+│   ├── Auth/            # Authentication tests
+│   ├── Settings/        # Settings tests
+│   ├── ExampleTest.php
+│   └── DashboardTest.php
+├── Unit/                # Unit tests (isolated components)
+│   └── ExampleTest.php
+├── Pest.php             # Pest configuration
+└── TestCase.php         # Base test case
+```
+
+## Test Configuration
+
+### Pest Configuration
+
+The `tests/Pest.php` file configures Pest:
+
+```php
+<?php
+
+// Extend base test case for all tests
+pest()->extend(Tests\TestCase::class)
+    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->in('Feature');
+
+// Custom expectations
+expect()->extend('toBeOne', function () {
+    return $this->toBe(1);
+});
+
+// Helper functions
+function something()
+{
+    // Helper logic
+}
+```
+
+### PHPUnit Configuration
+
+The `phpunit.xml` file configures test execution:
+
+```xml
+<phpunit>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+    </php>
+</phpunit>
+```
+
+## Running Tests
+
+### Run All Tests
+
+```bash
+composer run test
+# or
+php artisan test
+```
+
+### Run Specific Test Suites
+
+```bash
+# Run only feature tests
+php artisan test --testsuite=Feature
+
+# Run only unit tests
+php artisan test --testsuite=Unit
+```
+
+### Run Specific Test Files
+
+```bash
+# Run a specific test file
+php artisan test tests/Feature/Auth/AuthenticationTest.php
+
+# Run a specific test directory
+php artisan test tests/Feature/Auth/
+```
+
+### Run Specific Tests
+
+```bash
+# Run tests matching a pattern
+php artisan test --filter=login
+
+# Run a specific test by name
+php artisan test --filter="users can authenticate"
+```
+
+### Run with Coverage
+
+```bash
+# Generate HTML coverage report
+php artisan test --coverage --coverage-html=coverage
+
+# Minimum coverage threshold
+php artisan test --coverage --min=80
+```
+
+### Parallel Testing
+
+```bash
+# Run tests in parallel (faster)
+php artisan test --parallel
+
+# Specify number of processes
+php artisan test --parallel --processes=4
+```
+
+## Writing Tests
+
+### Basic Test Structure
+
+```php
+<?php
+
+it('returns a successful response', function () {
+    $response = $this->get('/');
+    
+    $response->assertStatus(200);
+});
+```
+
+### Test with Setup
+
+```php
+test('users can authenticate using the login screen', function () {
+    $user = User::factory()->create();
+    
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+    
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('dashboard'));
+});
+```
+
+### Using Expectations
+
+```php
+test('that true is true', function () {
+    expect(true)->toBeTrue();
+});
+
+test('user has correct data', function () {
+    $user = User::factory()->create(['name' => 'John']);
+    
+    expect($user->name)->toBe('John')
+        ->and($user->email)->toEndWith('@example.com')
+        ->and($user->created_at)->toBeInstanceOf(Carbon::class);
+});
+```
+
+## Feature Testing
+
+### HTTP Testing
+
+```php
+test('home page loads successfully', function () {
+    $response = $this->get('/');
+    
+    $response->assertStatus(200)
+        ->assertInertia(fn ($page) => $page
+            ->component('Home')
+            ->has('posts')
+        );
+});
+```
+
+### Authentication Testing
+
+```php
+test('guests cannot access dashboard', function () {
+    $response = $this->get(route('dashboard'));
+    
+    $response->assertRedirect(route('login'));
+});
+
+test('authenticated users can access dashboard', function () {
+    $user = User::factory()->create();
+    
+    $response = $this->actingAs($user)->get(route('dashboard'));
+    
+    $response->assertStatus(200);
+});
+```
+
+### Database Testing
+
+```php
+test('user can be created', function () {
+    $user = User::factory()->create([
+        'name' => 'John Doe',
+        'email' => 'john@example.com',
+    ]);
+    
+    $this->assertDatabaseHas('users', [
+        'email' => 'john@example.com',
+        'name' => 'John Doe',
+    ]);
+    
+    expect($user)->toBeInstanceOf(User::class)
+        ->and($user->name)->toBe('John Doe');
+});
+
+test('user can be deleted', function () {
+    $user = User::factory()->create();
+    
+    $user->delete();
+    
+    $this->assertDatabaseMissing('users', [
+        'id' => $user->id,
+    ]);
+});
+```
+
+### Form Validation Testing
+
+```php
+test('registration requires valid data', function () {
+    $response = $this->post(route('register'), [
+        'name' => '',
+        'email' => 'invalid-email',
+        'password' => '123',
+    ]);
+    
+    $response->assertSessionHasErrors(['name', 'email', 'password']);
+});
+```
+
+### Session and Cookie Testing
+
+```php
+test('session data persists', function () {
+    $response = $this->withSession(['key' => 'value'])
+        ->get('/test');
+    
+    $response->assertSessionHas('key', 'value');
+});
+```
+
+## Unit Testing
+
+### Testing Models
+
+```php
+test('user has full name attribute', function () {
+    $user = new User([
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+    ]);
+    
+    expect($user->full_name)->toBe('John Doe');
+});
+
+test('user can have many posts', function () {
+    $user = User::factory()
+        ->has(Post::factory()->count(3))
+        ->create();
+    
+    expect($user->posts)->toHaveCount(3)
+        ->each->toBeInstanceOf(Post::class);
+});
+```
+
+### Testing Services
+
+```php
+test('user service creates user correctly', function () {
+    $service = new UserService();
+    
+    $user = $service->create([
+        'name' => 'John Doe',
+        'email' => 'john@example.com',
+        'password' => 'password',
+    ]);
+    
+    expect($user)->toBeInstanceOf(User::class)
+        ->and($user->email)->toBe('john@example.com');
+});
+```
+
+### Mocking
+
+```php
+test('external API is called', function () {
+    $mock = Mockery::mock(ExternalApiService::class);
+    $mock->shouldReceive('getData')
+        ->once()
+        ->andReturn(['data' => 'test']);
+    
+    $this->app->instance(ExternalApiService::class, $mock);
+    
+    $service = app(MyService::class);
+    $result = $service->fetchData();
+    
+    expect($result)->toBe(['data' => 'test']);
+});
+```
+
+## Advanced Testing
+
+### Testing Events
+
+```php
+use Illuminate\Support\Facades\Event;
+
+test('user created event is dispatched', function () {
+    Event::fake();
+    
+    $user = User::factory()->create();
+    
+    Event::assertDispatched(UserCreated::class, function ($event) use ($user) {
+        return $event->user->id === $user->id;
+    });
+});
+```
+
+### Testing Jobs
+
+```php
+use Illuminate\Support\Facades\Queue;
+
+test('job is dispatched', function () {
+    Queue::fake();
+    
+    dispatch(new ProcessOrder($order));
+    
+    Queue::assertPushed(ProcessOrder::class, function ($job) use ($order) {
+        return $job->order->id === $order->id;
+    });
+});
+```
+
+### Testing Mail
+
+```php
+use Illuminate\Support\Facades\Mail;
+
+test('welcome email is sent', function () {
+    Mail::fake();
+    
+    $user = User::factory()->create();
+    
+    Mail::assertSent(WelcomeMail::class, function ($mail) use ($user) {
+        return $mail->hasTo($user->email);
+    });
+});
+```
+
+### Testing Notifications
+
+```php
+use Illuminate\Support\Facades\Notification;
+
+test('user receives welcome notification', function () {
+    Notification::fake();
+    
+    $user = User::factory()->create();
+    $user->notify(new WelcomeNotification());
+    
+    Notification::assertSentTo($user, WelcomeNotification::class);
+});
+```
+
+### Testing File Uploads
+
+```php
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+
+test('user can upload avatar', function () {
+    Storage::fake('public');
+    
+    $file = UploadedFile::fake()->image('avatar.jpg');
+    
+    $response = $this->actingAs($user)
+        ->post(route('avatar.upload'), [
+            'avatar' => $file,
+        ]);
+    
+    Storage::disk('public')->assertExists('avatars/' . $file->hashName());
+});
+```
+
+## Test Organization
+
+### Using beforeEach and afterEach
+
+```php
+beforeEach(function () {
+    $this->user = User::factory()->create();
+    $this->actingAs($this->user);
+});
+
+afterEach(function () {
+    // Cleanup
+});
+
+test('user can view dashboard', function () {
+    $response = $this->get(route('dashboard'));
+    $response->assertStatus(200);
+});
+```
+
+### Test Grouping
+
+```php
+describe('User Authentication', function () {
+    it('allows users to log in', function () {
+        // Test logic
+    });
+    
+    it('prevents invalid login', function () {
+        // Test logic
+    });
+});
+```
+
+### Skipping Tests
+
+```php
+test('incomplete feature', function () {
+    // Test logic
+})->skip('Feature not implemented yet');
+
+test('only on local', function () {
+    // Test logic
+})->skip(fn () => app()->environment('production'));
+```
+
+### Test Datasets
+
+```php
+test('validates email formats', function ($email, $valid) {
+    $response = $this->post(route('register'), [
+        'email' => $email,
+        'name' => 'Test',
+        'password' => 'password',
+    ]);
+    
+    if ($valid) {
+        $response->assertSessionHasNoErrors('email');
+    } else {
+        $response->assertSessionHasErrors('email');
+    }
+})->with([
+    ['valid@example.com', true],
+    ['invalid-email', false],
+    ['another@valid.com', true],
+    ['@invalid.com', false],
+]);
+```
+
+## Testing Inertia.js
+
+```php
+use Inertia\Testing\AssertableInertia as Assert;
+
+test('dashboard renders with correct data', function () {
+    $user = User::factory()->create();
+    
+    $response = $this->actingAs($user)
+        ->get(route('dashboard'));
+    
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('Dashboard')
+        ->has('posts', 10)
+        ->has('posts.0', fn (Assert $page) => $page
+            ->where('title', 'First Post')
+            ->where('author.name', 'John Doe')
+            ->etc()
+        )
+    );
+});
+```
+
+## Continuous Integration
+
+### GitHub Actions Example
+
+```yaml
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+          extensions: mbstring, pdo_sqlite
+          
+      - name: Install dependencies
+        run: composer install
+        
+      - name: Run tests
+        run: composer run test
+        
+      - name: Upload coverage
+        run: php artisan test --coverage --min=70
+```
+
+## Best Practices
+
+1. **Use Factory and Seeders** - Don't create test data manually
+2. **Test One Thing** - Each test should verify a single behavior
+3. **Use Descriptive Names** - Test names should describe what they test
+4. **Keep Tests Fast** - Use in-memory database, avoid external API calls
+5. **Use Fakes** - Mock external services (Mail, Queue, Storage, etc.)
+6. **Test Edge Cases** - Test validation, errors, and boundary conditions
+7. **Use beforeEach** - Share setup code across tests
+8. **Keep Tests Independent** - Tests should not depend on each other
+9. **Use Expectations** - Pest expectations are more readable than assertions
+10. **Test What Matters** - Focus on business logic, not framework code
+
+## Debugging Tests
+
+### View Test Output
+
+```bash
+# Verbose output
+php artisan test --verbose
+
+# Show test names
+php artisan test --display-errors
+```
+
+### Dump and Die in Tests
+
+```php
+test('debug test', function () {
+    $user = User::factory()->create();
+    
+    dd($user->toArray()); // Dump and die
+    dump($user); // Dump without stopping
+});
+```
+
+### Use Ray for Debugging
+
+```php
+test('debug with Ray', function () {
+    $user = User::factory()->create();
+    
+    ray($user); // Send to Ray app
+    ray()->showQueries(); // Show all queries
+});
+```
+
+## Next Steps
+
+- Review [Environment Variables](/development/environment) for test configuration
+- Learn about [Running the App](/development/running) in different modes
+- Explore [Setup Guide](/development/setup) for additional testing tools

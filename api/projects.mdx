@@ -1,0 +1,337 @@
+---
+title: 'Projects API'
+description: 'Project endpoints documentation'
+---
+
+# Projects API
+
+The Projects API would provide access to published projects with their authors, collaborators, and media.
+
+## Current Status
+
+<Warning>
+There are currently **no public API endpoints** implemented for projects in `routes/api.php`.
+</Warning>
+
+However, the underlying infrastructure is in place to support project API endpoints:
+
+## Available Resources
+
+The codebase includes the following project-related resources:
+
+### Models
+
+**Project Model** (`app/Models/Project.php`)
+
+The Project model includes these fields:
+
+- `id` - Unique identifier
+- `name` - Project name
+- `slug` - URL-friendly identifier
+- `summary` - Brief description
+- `content` - Detailed content (JSON array)
+- `repository_url` - Git repository URL
+- `demo_url` - Live demo URL
+- `tech_stack` - Technologies used (JSON array)
+- `version` - Project version
+- `license` - Software license
+- `is_featured` - Featured status (boolean)
+- `is_published` - Publication status (boolean)
+- `published_at` - Publication timestamp
+- `user_id` - Author/owner user ID
+- `created_at` - Creation timestamp
+- `updated_at` - Last update timestamp
+
+### Relationships
+
+```php
+// Project belongs to a user (author)
+public function author()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
+// Project has many collaborators (users)
+public function collaborators()
+{
+    return $this->belongsToMany(User::class, 'project_collaborators', 
+        'project_id', 'user_id')->withPivot('id');
+}
+```
+
+### Media Collections
+
+Projects support media using Spatie Media Library:
+
+**Collection:** `screenshots` (stored on S3)
+
+**Conversions:**
+- `screenshot` - 1920x1080px, quality 85%, cropped, with responsive images
+
+### API Resources
+
+Pre-built API resource classes are available:
+
+- `ProjectResource` - Transforms a single project
+- `ProjectCollection` - Transforms a collection of projects
+
+## Potential Implementation
+
+To implement a projects API endpoint similar to the blog API, you would:
+
+### 1. Create a Controller
+
+```php
+<?php
+
+namespace App\Http\Controllers\API;
+
+use App\Models\Project;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\ProjectCollection;
+
+class ApiProjectController extends Controller
+{
+    public function __invoke(Request $request)
+    {
+        $projects = Project::where('is_published', true)
+            ->with(['author', 'collaborators'])
+            ->orderBy('is_featured', 'DESC')
+            ->paginate();
+
+        return new ProjectCollection($projects);
+    }
+}
+```
+
+### 2. Add Route
+
+In `routes/api.php`:
+
+```php
+Route::get('/projects', ApiProjectController::class)->name('api.projects');
+```
+
+### 3. Update ProjectResource
+
+Ensure the `ProjectResource` includes media transformations similar to `PostResource`:
+
+```php
+public function toArray(Request $request): array
+{
+    $data = parent::toArray($request);
+
+    $data['media'] = $this->getMedia('screenshots')->map(
+        fn($m) =>
+        new MediaResource($m, 'screenshot', [
+            'screenshot' => ['width' => 1920, 'height' => 1080]
+        ])
+    );
+
+    return $data;
+}
+```
+
+## Expected Response Format
+
+Once implemented, a GET request to `/api/projects` would return:
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "EduStack Learning Platform",
+      "slug": "edustack-learning-platform",
+      "summary": "A comprehensive educational platform built with Laravel and Vue.js",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": "Full description..."
+        }
+      ],
+      "repository_url": "https://github.com/example/edustack",
+      "demo_url": "https://demo.edustack.com",
+      "tech_stack": [
+        "Laravel 11",
+        "Vue.js 3",
+        "Tailwind CSS",
+        "MySQL"
+      ],
+      "version": "1.0.0",
+      "license": "MIT",
+      "is_featured": true,
+      "is_published": true,
+      "published_at": "2026-03-01T00:00:00.000000Z",
+      "user_id": 1,
+      "created_at": "2026-02-01T10:00:00.000000Z",
+      "updated_at": "2026-03-04T12:00:00.000000Z",
+      "author": {
+        "id": 1,
+        "name": "John",
+        "father_last_name": "Doe",
+        "mother_last_name": "Smith",
+        "email": "john@example.com",
+        "is_active": true
+      },
+      "collaborators": [
+        {
+          "id": 2,
+          "name": "Jane",
+          "father_last_name": "Smith",
+          "mother_last_name": "Johnson",
+          "email": "jane@example.com",
+          "is_active": true,
+          "pivot": {
+            "id": 1
+          }
+        }
+      ],
+      "media": [
+        {
+          "id": 1,
+          "is_processed": true,
+          "urls": {
+            "screenshot": "https://s3.amazonaws.com/bucket/screenshots/project-screenshot.jpg",
+            "original": "https://s3.amazonaws.com/bucket/project-original.jpg"
+          },
+          "dimensions": {
+            "screenshot": {
+              "width": 1920,
+              "height": 1080
+            }
+          },
+          "responsive": {},
+          "custom_properties": {}
+        }
+      ]
+    }
+  ],
+  "links": {
+    "first": "https://your-domain.com/api/projects?page=1",
+    "last": "https://your-domain.com/api/projects?page=3",
+    "prev": null,
+    "next": "https://your-domain.com/api/projects?page=2"
+  },
+  "meta": {
+    "current_page": 1,
+    "from": 1,
+    "last_page": 3,
+    "path": "https://your-domain.com/api/projects",
+    "per_page": 15,
+    "to": 15,
+    "total": 42
+  }
+}
+```
+
+## Model Structure
+
+### Project Fields
+
+<ResponseField name="id" type="integer">
+  Unique project identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Project name/title
+</ResponseField>
+
+<ResponseField name="slug" type="string">
+  URL-friendly identifier (auto-generated from name)
+</ResponseField>
+
+<ResponseField name="summary" type="string">
+  Brief project description
+</ResponseField>
+
+<ResponseField name="content" type="array">
+  Detailed project content (structured JSON)
+</ResponseField>
+
+<ResponseField name="repository_url" type="string | null">
+  URL to the source code repository
+</ResponseField>
+
+<ResponseField name="demo_url" type="string | null">
+  URL to live demo or deployment
+</ResponseField>
+
+<ResponseField name="tech_stack" type="array">
+  List of technologies and frameworks used
+</ResponseField>
+
+<ResponseField name="version" type="string | null">
+  Current project version
+</ResponseField>
+
+<ResponseField name="license" type="string | null">
+  Software license (e.g., MIT, GPL, Apache)
+</ResponseField>
+
+<ResponseField name="is_featured" type="boolean">
+  Whether the project is featured
+</ResponseField>
+
+<ResponseField name="is_published" type="boolean">
+  Publication status
+</ResponseField>
+
+<ResponseField name="published_at" type="string | null">
+  Publication timestamp (ISO 8601)
+</ResponseField>
+
+<ResponseField name="user_id" type="integer">
+  ID of the project owner/author
+</ResponseField>
+
+## User Integration
+
+Users can have relationships with projects:
+
+### As Author
+
+```php
+// From User model
+public function projects()
+{
+    return $this->hasMany(Project::class);
+}
+```
+
+### As Collaborator
+
+```php
+// From User model
+public function projectsCollaborations()
+{
+    return $this->belongsToMany(Project::class, 'project_collaborators', 
+        'user_id', 'project_id')->withPivot('id');
+}
+```
+
+## Related Models
+
+### ProjectCollaborator
+
+Pivot model for the many-to-many relationship between users and projects.
+
+Location: `app/Models/ProjectCollaborator.php`
+
+## Next Steps
+
+To enable project API functionality:
+
+1. Create `ApiProjectController` controller
+2. Add route to `routes/api.php`
+3. Update `ProjectResource` to include media transformations
+4. Optionally add filtering and search parameters
+5. Consider adding authentication if needed
+6. Add specific project endpoint (e.g., `/api/projects/{slug}`)
+
+## Related Resources
+
+- [API Overview](/api/overview) - General API information
+- [Blog API](/api/blog) - Similar implementation example
+- [Authentication](/api/authentication) - If you want to protect the endpoint

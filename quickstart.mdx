@@ -1,80 +1,504 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Get EduStack Smart running in minutes with this step-by-step guide
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+Get EduStack Smart up and running on your local machine in just a few minutes. This guide will walk you through cloning the repository, installing dependencies, configuring the environment, and launching the application.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  This quick start guide is designed for development environments. For production deployment, see the [Installation Guide](/installation).
 </Note>
+
+## Prerequisites
+
+Before starting, ensure you have the following installed:
+
+- **PHP 8.2+** (PHP 8.3 recommended)
+- **Composer** (latest version)
+- **Node.js 18+** and **pnpm**
+- **SQLite** or **PostgreSQL**
+- **Git**
+
+<Warning>
+  Make sure your PHP installation includes required extensions: `sqlite3`, `pdo`, `mbstring`, `xml`, `curl`, `zip`, `gd`
+</Warning>
+
+## Step-by-Step Setup
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the EduStack Smart repository to your local machine:
+    
+    ```bash
+    git clone <repository-url> edustack-smart
+    cd edustack-smart
+    ```
+    
+    Replace `<repository-url>` with the actual repository URL.
+  </Step>
+
+  <Step title="Install PHP Dependencies">
+    Install backend dependencies using Composer:
+    
+    ```bash
+    composer install
+    ```
+    
+    This will install Laravel 12 and all required packages including:
+    - Laravel Sanctum for authentication
+    - Laravel Reverb for WebSockets
+    - Spatie MediaLibrary for media handling
+    - Inertia.js for the admin panel
+    
+    <Info>
+      The installation may take a few minutes depending on your internet connection.
+    </Info>
+  </Step>
+
+  <Step title="Install Frontend Dependencies">
+    Install frontend dependencies using pnpm:
+    
+    ```bash
+    pnpm install
+    ```
+    
+    This installs React, TypeScript, Tailwind CSS 4, and all UI dependencies.
+    
+    <Note>
+      If you don't have pnpm installed, run `npm install -g pnpm` first. You can also use `npm install` but pnpm is recommended for faster installs.
+    </Note>
+  </Step>
+
+  <Step title="Configure Environment">
+    Copy the environment example file and generate an application key:
+    
+    ```bash
+    cp .env.example .env
+    php artisan key:generate
+    ```
+    
+    The default configuration uses SQLite for simplicity. For basic development, you can use these defaults:
+    
+    ```bash .env
+    APP_NAME="EduStack Smart"
+    APP_ENV=local
+    APP_DEBUG=true
+    APP_URL=http://localhost:8000
+    
+    # Database (SQLite by default)
+    DB_CONNECTION=sqlite
+    
+    # Session & Cache
+    SESSION_DRIVER=database
+    CACHE_STORE=database
+    QUEUE_CONNECTION=database
+    
+    # Broadcasting (for WebSockets)
+    BROADCAST_CONNECTION=log
+    ```
+    
+    <Accordion title="Optional: PostgreSQL Configuration">
+      If you prefer PostgreSQL over SQLite:
+      
+      ```bash .env
+      DB_CONNECTION=pgsql
+      DB_HOST=127.0.0.1
+      DB_PORT=5432
+      DB_DATABASE=edustack_smart
+      DB_USERNAME=your_username
+      DB_PASSWORD=your_password
+      ```
+      
+      Create the database first:
+      ```bash
+      createdb edustack_smart
+      ```
+    </Accordion>
+  </Step>
+
+  <Step title="Create Database & Run Migrations">
+    For SQLite (default), create the database file:
+    
+    ```bash
+    touch database/database.sqlite
+    ```
+    
+    Run migrations to create all database tables:
+    
+    ```bash
+    php artisan migrate
+    ```
+    
+    This creates tables for:
+    - Users with two-factor authentication
+    - Role-based permissions
+    - Posts and categories
+    - Projects and collaborators
+    - Events and activities
+    - Media library
+    - Cache and sessions
+    - Job queues
+    
+    <Info>
+      You'll see output showing each migration being executed successfully.
+    </Info>
+  </Step>
+
+  <Step title="Seed the Database (Optional)">
+    Populate the database with sample data for testing:
+    
+    ```bash
+    php artisan db:seed
+    ```
+    
+    This creates:
+    - Sample users with different roles
+    - Example projects
+    - Blog posts and categories
+    - Events and activities
+    
+    <Note>
+      Seeding is optional but recommended for development to have test data to work with.
+    </Note>
+  </Step>
+
+  <Step title="Generate IDE Helper Files (Optional)">
+    For better IDE autocompletion:
+    
+    ```bash
+    php artisan ide-helper:generate
+    php artisan ide-helper:models
+    ```
+  </Step>
+
+  <Step title="Start the Development Server">
+    EduStack Smart provides a convenient command to start all necessary services:
+    
+    ```bash
+    composer dev
+    ```
+    
+    This single command starts:
+    - **Laravel development server** on `http://localhost:8000`
+    - **Queue worker** for background jobs
+    - **Vite dev server** for hot module replacement
+    
+    <Info>
+      The `composer dev` command uses `concurrently` to run multiple processes with color-coded output:
+      - 🔵 Blue: PHP server
+      - 🟣 Purple: Queue worker
+      - 🟠 Orange: Vite
+    </Info>
+    
+    <Accordion title="Alternative: Start Services Individually">
+      If you prefer to start services separately:
+      
+      **Terminal 1 - Laravel Server:**
+      ```bash
+      php artisan serve
+      ```
+      
+      **Terminal 2 - Queue Worker:**
+      ```bash
+      php artisan queue:listen --tries=1
+      ```
+      
+      **Terminal 3 - Vite Dev Server:**
+      ```bash
+      pnpm run dev
+      ```
+    </Accordion>
+  </Step>
+
+  <Step title="Access the Application">
+    Open your browser and navigate to:
+    
+    ```
+    http://localhost:8000
+    ```
+    
+    You should see the EduStack Smart homepage!
+    
+    <Success>
+      Congratulations! EduStack Smart is now running on your local machine.
+    </Success>
+  </Step>
+</Steps>
+
+## Verify Installation
+
+Test that everything is working correctly:
+
+<Tabs>
+  <Tab title="Frontend">
+    Visit `http://localhost:8000` and verify:
+    - ✅ Homepage loads correctly
+    - ✅ Navigation works
+    - ✅ No console errors in browser DevTools
+  </Tab>
+  
+  <Tab title="Admin Panel">
+    Access the admin panel (typically at `/admin` or `/dashboard`):
+    - ✅ Login page displays
+    - ✅ Can log in with seeded user
+    - ✅ Dashboard loads with navigation
+  </Tab>
+  
+  <Tab title="API">
+    Test the API endpoint:
+    
+    ```bash
+    curl http://localhost:8000/api/health
+    ```
+    
+    You should receive a JSON response.
+  </Tab>
+  
+  <Tab title="Queue">
+    Check that the queue worker is processing jobs:
+    
+    ```bash
+    php artisan queue:work --once
+    ```
+    
+    Should complete without errors.
+  </Tab>
+</Tabs>
+
+## Common Development Tasks
+
+### Running Tests
+
+EduStack Smart uses Pest for testing:
+
+```bash
+composer test
+```
+
+Or run Pest directly:
+
+```bash
+php artisan test
+```
+
+### Code Formatting
+
+**PHP (Laravel Pint):**
+```bash
+./vendor/bin/pint
+```
+
+**JavaScript/TypeScript (Prettier):**
+```bash
+pnpm run format
+```
+
+### Linting
+
+**Check formatting:**
+```bash
+pnpm run format:check
+```
+
+**Run ESLint:**
+```bash
+pnpm run lint
+```
+
+**Type checking:**
+```bash
+pnpm run types
+```
+
+### Building for Production
+
+**Build frontend assets:**
+```bash
+pnpm run build
+```
+
+**Build with SSR support:**
+```bash
+pnpm run build:ssr
+```
+
+### Database Management
+
+**Create a new migration:**
+```bash
+php artisan make:migration create_example_table
+```
+
+**Rollback last migration:**
+```bash
+php artisan migrate:rollback
+```
+
+**Fresh migration (reset database):**
+```bash
+php artisan migrate:fresh --seed
+```
+
+<Warning>
+  The `migrate:fresh` command drops all tables and recreates them. Only use in development!
+</Warning>
+
+### Clearing Caches
+
+If you encounter issues, clear the application caches:
+
+```bash
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+```
+
+Or clear everything at once:
+
+```bash
+php artisan optimize:clear
+```
+
+## Setting Up WebSockets (Laravel Reverb)
+
+For real-time features, configure Laravel Reverb:
+
+<Steps>
+  <Step title="Install Reverb">
+    Reverb is already included in `composer.json`. Install it:
+    
+    ```bash
+    php artisan reverb:install
+    ```
+  </Step>
+  
+  <Step title="Update Environment">
+    Update your `.env` file:
+    
+    ```bash .env
+    BROADCAST_CONNECTION=reverb
+    
+    REVERB_APP_ID=edustack
+    REVERB_APP_KEY=your-app-key
+    REVERB_APP_SECRET=your-app-secret
+    REVERB_HOST=localhost
+    REVERB_PORT=8080
+    REVERB_SCHEME=http
+    ```
+  </Step>
+  
+  <Step title="Start Reverb Server">
+    In a new terminal window:
+    
+    ```bash
+    php artisan reverb:start
+    ```
+    
+    The WebSocket server will start on `ws://localhost:8080`.
+  </Step>
+</Steps>
+
+<Note>
+  For development without WebSockets, you can leave `BROADCAST_CONNECTION=log` which logs events instead of broadcasting them.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port 8000 already in use">
+    If port 8000 is occupied, specify a different port:
+    
+    ```bash
+    php artisan serve --port=8001
+    ```
+    
+    Update `APP_URL` in `.env` accordingly.
+  </Accordion>
+  
+  <Accordion title="Permission denied errors">
+    Ensure storage and cache directories are writable:
+    
+    ```bash
+    chmod -R 775 storage bootstrap/cache
+    ```
+  </Accordion>
+  
+  <Accordion title="SQLSTATE[HY000] connection refused">
+    If using PostgreSQL, verify:
+    - PostgreSQL is running: `pg_isready`
+    - Database exists: `psql -l | grep edustack`
+    - Credentials in `.env` are correct
+    
+    For SQLite, ensure `database/database.sqlite` exists.
+  </Accordion>
+  
+  <Accordion title="Vite manifest not found">
+    Build the frontend assets or ensure Vite dev server is running:
+    
+    ```bash
+    pnpm run dev
+    ```
+  </Accordion>
+  
+  <Accordion title="Class not found errors">
+    Regenerate the Composer autoload files:
+    
+    ```bash
+    composer dump-autoload
+    ```
+  </Accordion>
+  
+  <Accordion title="Node.js version issues">
+    Ensure you're using Node.js 18 or higher:
+    
+    ```bash
+    node --version
+    ```
+    
+    Consider using a version manager like `nvm` or `fnm`.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that EduStack Smart is running, explore these topics:
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="server" href="/installation">
+    Learn about production deployment
+  </Card>
+  
+  <Card title="Configuration" icon="gear" href="/development/environment">
+    Configure the application for your needs
+  </Card>
+  
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Understand the system architecture
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore the API endpoints
+  </Card>
+</CardGroup>
+
+## Development Workflow
+
+Recommended workflow for daily development:
+
+1. **Start services**: `composer dev` (or services individually)
+2. **Make changes**: Edit code with hot reloading active
+3. **Run tests**: `composer test` before committing
+4. **Format code**: `pnpm run format && ./vendor/bin/pint`
+5. **Commit changes**: Follow conventional commit messages
+6. **Stop services**: Press `Ctrl+C` to stop all services
+
+<Tip>
+  Use the `composer dev:ssr` command if you need server-side rendering with Inertia SSR mode for the admin panel.
+</Tip>
+
+---
+
+**Need help?** Check the [Troubleshooting](#troubleshooting) section or consult the full [Installation Guide](/installation) for more details.

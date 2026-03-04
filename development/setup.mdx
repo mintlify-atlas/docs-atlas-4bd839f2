@@ -1,0 +1,413 @@
+---
+title: 'Development Environment Setup'
+description: 'Complete guide to setting up your development environment for EduStack Smart'
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **PHP 8.2 or higher** - Laravel 12 requires PHP 8.2+
+- **Composer** - PHP dependency manager
+- **Node.js 18+** - For frontend asset compilation
+- **pnpm** - Preferred package manager (or npm/yarn)
+- **SQLite** or **MySQL/PostgreSQL** - Database engine
+- **Git** - Version control
+
+## Initial Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd edustack-smart
+```
+
+### 2. Install Dependencies
+
+Install PHP dependencies:
+
+```bash
+composer install
+```
+
+Install JavaScript dependencies:
+
+```bash
+pnpm install
+```
+
+### 3. Environment Configuration
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Generate an application key:
+
+```bash
+php artisan key:generate
+```
+
+### 4. Database Setup
+
+For SQLite (default):
+
+```bash
+touch database/database.sqlite
+php artisan migrate --seed
+```
+
+For MySQL/PostgreSQL, update your `.env` file with database credentials and run:
+
+```bash
+php artisan migrate --seed
+```
+
+## IDE Configuration
+
+### Visual Studio Code
+
+#### Recommended Extensions
+
+- **PHP Intelephense** - PHP language support
+- **Laravel Extension Pack** - Laravel-specific tools
+- **ESLint** - JavaScript/TypeScript linting
+- **Prettier** - Code formatting
+- **Tailwind CSS IntelliSense** - Tailwind class autocomplete
+- **Inertia.js** - Inertia.js support
+
+#### Workspace Settings
+
+Create `.vscode/settings.json`:
+
+```json
+{
+  "php.suggest.basic": false,
+  "intelephense.stubs": [
+    "apache",
+    "bcmath",
+    "Core",
+    "ctype",
+    "curl",
+    "date",
+    "dom",
+    "fileinfo",
+    "filter",
+    "ftp",
+    "gd",
+    "gettext",
+    "hash",
+    "iconv",
+    "json",
+    "libxml",
+    "mbstring",
+    "mcrypt",
+    "mysql",
+    "mysqli",
+    "password",
+    "pcntl",
+    "pcre",
+    "PDO",
+    "pdo_mysql",
+    "Phar",
+    "readline",
+    "regex",
+    "session",
+    "SimpleXML",
+    "sockets",
+    "sodium",
+    "standard",
+    "superglobals",
+    "tokenizer",
+    "xml",
+    "xdebug",
+    "xmlreader",
+    "xmlwriter",
+    "zip",
+    "zlib"
+  ],
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[php]": {
+    "editor.defaultFormatter": "bmewburn.vscode-intelephense-client"
+  },
+  "files.associations": {
+    "*.blade.php": "blade",
+    "*.css": "tailwindcss"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+  ]
+}
+```
+
+### PhpStorm
+
+#### Laravel Plugin
+
+Install the **Laravel Plugin** from the JetBrains Marketplace for enhanced Laravel support.
+
+#### PHP Interpreter
+
+1. Go to **Settings** > **PHP**
+2. Set your PHP CLI interpreter to PHP 8.2+
+3. Configure Composer in **Settings** > **PHP** > **Composer**
+
+#### Code Style
+
+1. Go to **Settings** > **Editor** > **Code Style** > **PHP**
+2. Click **Set from...** > **Laravel**
+
+## IDE Helper Generation
+
+EduStack Smart includes `laravel-ide-helper` for better IDE autocomplete. Generate helper files:
+
+```bash
+php artisan ide-helper:generate
+php artisan ide-helper:models
+php artisan ide-helper:meta
+```
+
+These commands generate helper files that improve IDE autocomplete for facades, models, and meta information.
+
+## Debugging Tools
+
+### Laravel Pail
+
+Laravel Pail is included for real-time log viewing. Start Pail to monitor application logs:
+
+```bash
+php artisan pail
+```
+
+Pail will display logs in real-time with color-coded output. Options:
+
+```bash
+# Filter by log level
+php artisan pail --filter=error
+
+# Filter by message content
+php artisan pail --message="User logged in"
+
+# Set timeout (0 for no timeout)
+php artisan pail --timeout=0
+```
+
+Pail is automatically included in the `composer run dev:ssr` command.
+
+### Laravel Tinker
+
+Tinker provides an interactive REPL for Laravel:
+
+```bash
+php artisan tinker
+```
+
+Use Tinker to:
+- Test Eloquent queries
+- Interact with models
+- Execute artisan commands
+- Debug application logic
+
+### Xdebug
+
+#### Installation
+
+Install Xdebug via PECL:
+
+```bash
+pecl install xdebug
+```
+
+#### Configuration
+
+Add to your `php.ini`:
+
+```ini
+zend_extension=xdebug.so
+xdebug.mode=debug
+xdebug.start_with_request=yes
+xdebug.client_port=9003
+xdebug.client_host=127.0.0.1
+```
+
+#### VS Code Configuration
+
+Install the **PHP Debug** extension and add to `.vscode/launch.json`:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Listen for Xdebug",
+      "type": "php",
+      "request": "launch",
+      "port": 9003,
+      "pathMappings": {
+        "/var/www/html": "${workspaceFolder}"
+      }
+    }
+  ]
+}
+```
+
+### Laravel Debugbar (Optional)
+
+For development, you may want to install Laravel Debugbar:
+
+```bash
+composer require barryvdh/laravel-debugbar --dev
+```
+
+## Code Quality Tools
+
+### Laravel Pint
+
+Laravel Pint is included for PHP code formatting:
+
+```bash
+# Format all files
+vendor/bin/pint
+
+# Format specific files
+vendor/bin/pint app/Models
+
+# Test without making changes
+vendor/bin/pint --test
+```
+
+### ESLint & Prettier
+
+For JavaScript/TypeScript code quality:
+
+```bash
+# Run ESLint
+pnpm run lint
+
+# Format code with Prettier
+pnpm run format
+
+# Check formatting without changes
+pnpm run format:check
+```
+
+### TypeScript Type Checking
+
+Check TypeScript types:
+
+```bash
+pnpm run types
+```
+
+## Browser DevTools
+
+### React Developer Tools
+
+Install the React DevTools browser extension:
+- [Chrome](https://chrome.google.com/webstore/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi)
+- [Firefox](https://addons.mozilla.org/en-US/firefox/addon/react-devtools/)
+
+### Inertia.js DevTools
+
+For debugging Inertia.js requests, monitor the Network tab in browser DevTools and look for requests with `X-Inertia` headers.
+
+## Database Tools
+
+### TablePlus / DBnD
+
+Use a database GUI client for easier database management:
+
+**Connection Settings:**
+- Host: `127.0.0.1`
+- Database: `database/database.sqlite` (for SQLite) or your configured database name
+- User: As configured in `.env`
+- Password: As configured in `.env`
+
+### Laravel Migrations
+
+Manage database schema:
+
+```bash
+# Run migrations
+php artisan migrate
+
+# Rollback last migration
+php artisan migrate:rollback
+
+# Reset and re-run all migrations
+php artisan migrate:fresh
+
+# Reset and seed
+php artisan migrate:fresh --seed
+```
+
+## Git Configuration
+
+### Git Hooks
+
+Consider setting up pre-commit hooks for code quality:
+
+```bash
+#!/bin/sh
+# .git/hooks/pre-commit
+
+vendor/bin/pint --test
+pnpm run format:check
+pnpm run types
+```
+
+Make it executable:
+
+```bash
+chmod +x .git/hooks/pre-commit
+```
+
+## Next Steps
+
+Once your environment is set up:
+
+1. Review [Environment Variables](/development/environment) to configure your application
+2. Learn how to [Run the Application](/development/running) in development mode
+3. Explore [Testing](/development/testing) to write and run tests
+
+## Troubleshooting
+
+### Common Issues
+
+**Permission Errors**
+
+If you encounter permission errors:
+
+```bash
+chmod -R 775 storage bootstrap/cache
+```
+
+**Node Module Issues**
+
+If you have issues with node modules:
+
+```bash
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
+```
+
+**Composer Issues**
+
+Clear Composer cache:
+
+```bash
+composer clear-cache
+composer install
+```
+
+**Port Already in Use**
+
+If port 8000 is already in use:
+
+```bash
+php artisan serve --port=8001
+```

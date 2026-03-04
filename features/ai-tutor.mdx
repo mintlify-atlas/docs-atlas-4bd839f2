@@ -1,0 +1,518 @@
+---
+title: AI Tutor (Local Inference)
+description: Browser-based AI tutor using WebLLM and WebGPU for private, low-latency educational assistance
+---
+
+EduStack Smart integrates a local AI tutor that runs entirely in the user's browser using WebLLM and WebGPU, providing educational assistance without sending data to external servers.
+
+## Overview
+
+The AI tutor system provides:
+
+- **Local inference** - LLM runs directly in the browser
+- **Privacy-first** - No data sent to external APIs
+- **Low latency** - No network round trips for inference
+- **Offline capable** - Works without internet (after model download)
+- **GPU acceleration** - Uses WebGPU for fast inference
+- **Educational context** - Tuned for learning assistance
+- **Zero API costs** - No per-request charges
+
+## Technology Stack
+
+### Core Technologies
+
+- **WebLLM** - Browser-based LLM inference engine
+- **WebGPU** - GPU acceleration in the browser
+- **React** - UI components and state management
+- **TypeScript** - Type-safe implementation
+
+### Browser Requirements
+
+**WebGPU Support Required:**
+
+- Chrome 113+ (recommended)
+- Edge 113+
+- Opera 99+
+- Safari Technology Preview (experimental)
+
+**System Requirements:**
+
+- Modern GPU with WebGPU support
+- Minimum 4GB RAM (8GB+ recommended)
+- 2-4GB free disk space for model caching
+
+## Architecture
+
+### How It Works
+
+```
+┌─────────────────────────────────────────┐
+│          User's Browser                 │
+│                                         │
+│  ┌──────────────────────────────────┐  │
+│  │   React Application              │  │
+│  └──────────────┬───────────────────┘  │
+│                 │                       │
+│  ┌──────────────▼───────────────────┐  │
+│  │   WebLLM Engine                  │  │
+│  │   - Model Loading                │  │
+│  │   - Inference Management         │  │
+│  │   - Token Generation             │  │
+│  └──────────────┬───────────────────┘  │
+│                 │                       │
+│  ┌──────────────▼───────────────────┐  │
+│  │   WebGPU                         │  │
+│  │   - GPU Acceleration             │  │
+│  │   - Matrix Operations            │  │
+│  └──────────────────────────────────┘  │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Inference Flow:**
+
+1. User submits question/prompt
+2. WebLLM processes input through loaded model
+3. WebGPU accelerates computation
+4. Tokens generated and streamed to UI
+5. Response displayed in real-time
+
+**No external API calls** - Everything happens locally.
+
+## Privacy & Security Benefits
+
+### Data Privacy
+
+**What Stays Local:**
+
+- All user queries and questions
+- Generated responses
+- Conversation history
+- Student code and assignments
+- Personal learning data
+
+**GDPR/Privacy Compliance:**
+
+- No data sent to third parties
+- No cloud processing
+- No API logging
+- Student data never leaves device
+- Full FERPA compliance for educational use
+
+### Security Advantages
+
+- No API keys to manage or leak
+- No network interception risk
+- No server-side data breaches
+- Air-gapped inference possible
+- Perfect for sensitive educational content
+
+## Educational Use Cases
+
+### 1. Contextual Learning Assistance
+
+**Scenario:** Student working on code project
+
+```typescript
+// Student's code
+function calculateAverage(numbers: number[]): number {
+    // Help me implement this
+}
+```
+
+**AI Tutor Interaction:**
+
+- Explain algorithm approach
+- Suggest implementation steps
+- Point out edge cases
+- Explain time complexity
+- No code leaves the browser
+
+### 2. Concept Explanation
+
+**Use Case:** Understanding complex topics
+
+**Examples:**
+
+- "Explain recursion in simple terms"
+- "What's the difference between SQL joins?"
+- "How does event-driven architecture work?"
+- "Explain Big O notation with examples"
+
+**Benefits:**
+
+- Instant responses (no API latency)
+- Unlimited questions (no API costs)
+- Private learning (no tracking)
+- Works offline
+
+### 3. Code Review & Feedback
+
+**Scenario:** Student submits project code
+
+**AI Can Provide:**
+
+- Code quality feedback
+- Best practice suggestions
+- Bug identification
+- Performance optimization ideas
+- Security considerations
+
+**Privacy Advantage:** Student code never sent to external servers.
+
+### 4. Assignment Assistance
+
+**Ethical Educational Support:**
+
+- Explain problem requirements
+- Suggest learning resources
+- Clarify concepts (not solve problems)
+- Provide debugging strategies
+- Explain error messages
+
+**Not for cheating** - Designed to teach, not solve.
+
+### 5. Study Aid & Summarization
+
+**Use Cases:**
+
+- Summarize lecture notes
+- Generate study questions
+- Create concept maps
+- Quiz generation
+- Flashcard creation
+
+### 6. Technical Writing Help
+
+**Applications:**
+
+- Project documentation
+- README file creation
+- Code comments improvement
+- Technical report writing
+- API documentation
+
+## Model Selection
+
+WebLLM supports various open-source models:
+
+### Recommended Models
+
+**Small (2-4GB):**
+
+- Phi-2
+- TinyLlama
+- Qwen-1.8B
+
+**Medium (4-8GB):**
+
+- Mistral-7B
+- Llama-2-7B
+- CodeLlama-7B
+
+**Large (8GB+):**
+
+- Llama-2-13B
+- CodeLlama-13B
+- Mixtral-8x7B (if hardware supports)
+
+### Model Trade-offs
+
+| Model Size | RAM Required | Quality | Speed | Use Case |
+|------------|--------------|---------|-------|----------|
+| 2-4GB | 4GB | Good | Fast | Quick answers, basic help |
+| 4-8GB | 8GB | Better | Medium | Code assistance, detailed explanations |
+| 8GB+ | 16GB+ | Best | Slower | Complex reasoning, comprehensive support |
+
+## Implementation Example
+
+### Basic Integration
+
+```typescript
+// Example WebLLM integration (conceptual)
+import { CreateMLCEngine } from "@mlc-ai/web-llm";
+
+const engine = await CreateMLCEngine("Llama-2-7b-chat-hf-q4f32_1", {
+    initProgressCallback: (progress) => {
+        console.log(`Loading model: ${progress.progress}%`);
+    }
+});
+
+async function askTutor(question: string): Promise<string> {
+    const messages = [
+        { role: "system", content: "You are a helpful educational tutor." },
+        { role: "user", content: question }
+    ];
+
+    const reply = await engine.chat.completions.create({
+        messages,
+        temperature: 0.7,
+        max_tokens: 512,
+    });
+
+    return reply.choices[0].message.content;
+}
+```
+
+### Streaming Responses
+
+```typescript
+async function streamTutorResponse(question: string) {
+    const chunks = await engine.chat.completions.create({
+        messages: [{ role: "user", content: question }],
+        stream: true,
+    });
+
+    for await (const chunk of chunks) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        // Update UI with each token
+        updateUI(content);
+    }
+}
+```
+
+## Performance Optimization
+
+### Model Caching
+
+**First Load:**
+
+- Downloads model (2-8GB)
+- Takes 2-10 minutes depending on connection
+- Shows progress bar
+
+**Subsequent Loads:**
+
+- Uses IndexedDB cache
+- Loads in seconds
+- No network required
+
+### Memory Management
+
+```typescript
+// Clean up when done
+await engine.unload();
+
+// Reload when needed
+await engine.reload("different-model");
+```
+
+### GPU Optimization
+
+**WebGPU Acceleration:**
+
+- Automatic for supported browsers
+- 10-100x faster than CPU
+- Reduces inference time dramatically
+
+**Fallback:**
+
+- WebAssembly (WASM) on unsupported browsers
+- Slower but functional
+
+## User Experience
+
+### First-Time Setup
+
+1. User opens AI tutor feature
+2. Browser compatibility check
+3. Model selection prompt
+4. Download progress (with pause/resume)
+5. Initial loading
+6. Ready to use
+
+### Ongoing Usage
+
+1. Instant access (model cached)
+2. Fast responses (local inference)
+3. No internet dependency
+4. Consistent performance
+
+### UI Components
+
+**Suggested Features:**
+
+- Chat interface
+- Code syntax highlighting
+- Copy code snippets
+- Conversation history (local storage)
+- Context awareness
+- Model status indicator
+
+## Limitations & Considerations
+
+### Technical Limitations
+
+**Hardware Requirements:**
+
+- Not all devices support WebGPU
+- Mobile support limited
+- Requires modern hardware
+
+**Browser Support:**
+
+- Chrome/Edge recommended
+- Safari support experimental
+- Firefox WebGPU in development
+
+**Model Limitations:**
+
+- Smaller models less capable than GPT-4
+- Context window limits (2K-4K tokens)
+- May hallucinate or give incorrect answers
+- No real-time internet access
+
+### Educational Considerations
+
+**Academic Integrity:**
+
+- Configure to assist learning, not solve assignments
+- System prompts emphasize teaching over answers
+- Encourage critical thinking
+
+**Supervision:**
+
+- AI responses should be verified
+- Not a replacement for teachers
+- Supplemental learning tool
+
+**Accessibility:**
+
+- Not all students have compatible devices
+- Provide alternative support methods
+- Consider lab computers with WebGPU support
+
+## Cost & Resource Benefits
+
+### For Institution
+
+**Zero Ongoing Costs:**
+
+- No API fees
+- No per-student charges
+- No usage limits
+- Unlimited questions
+
+**Comparison:**
+
+| Solution | Cost per 1000 queries | Data Privacy |
+|----------|----------------------|-------------|
+| OpenAI API | $1-10 | External |
+| Anthropic API | $2-15 | External |
+| WebLLM Local | $0 | Complete |
+
+### For Students
+
+**Benefits:**
+
+- Free unlimited access
+- Works on personal devices
+- No account required (can be)
+- Private learning
+- No data mining
+
+## Future Enhancements
+
+### Potential Features
+
+**Model Improvements:**
+
+- Support for specialized code models
+- Math-focused models
+- Multi-language models
+
+**Feature Additions:**
+
+- Document Q&A (upload PDFs locally)
+- Image understanding (vision models)
+- Voice interaction
+- Multi-turn conversations with memory
+
+**Integration:**
+
+- Embedded in code editor
+- Classroom management features
+- Progress tracking (locally)
+- Teacher oversight tools
+
+## Related Technologies
+
+**WebLLM Ecosystem:**
+
+- **Dexie** - IndexedDB wrapper for model caching
+- **Transformers.js** - Alternative inference engine
+- **ONNX Runtime Web** - Another option for browser ML
+
+**Dependencies (from package.json):**
+
+```json
+{
+  "dependencies": {
+    "dexie": "^4.2.1",
+    "dexie-react-hooks": "^4.2.0",
+    "react": "^19.2.3",
+    "typescript": "^5.7.2"
+  }
+}
+```
+
+Note: While WebLLM is not currently in package.json, the infrastructure (Dexie for caching, React, TypeScript) is in place for integration.
+
+## Implementation Status
+
+As documented in the project README:
+
+> The system integrates LLM models executed directly in the browser using:
+> - WebLLM
+> - WebGPU
+>
+> **Use cases:**
+> - Contextual tutor
+> - Automatic summarization
+> - Question generation
+> - Code explanation
+> - Technical feedback
+>
+> **Advantages:**
+> - Local inference
+> - Enhanced privacy
+> - Low latency
+> - No dependency on external APIs
+
+## Getting Started
+
+### For Developers
+
+1. Install WebLLM:
+   ```bash
+   npm install @mlc-ai/web-llm
+   ```
+
+2. Check browser compatibility:
+   ```typescript
+   const hasWebGPU = 'gpu' in navigator;
+   ```
+
+3. Load a model:
+   ```typescript
+   const engine = await CreateMLCEngine("Llama-2-7b-chat");
+   ```
+
+4. Start inferencing:
+   ```typescript
+   const response = await engine.chat.completions.create({...});
+   ```
+
+### For Users
+
+1. Ensure modern browser (Chrome 113+)
+2. Check hardware has GPU
+3. Navigate to AI tutor feature
+4. Download model (one-time)
+5. Start asking questions
+
+## Related Documentation
+
+- [Authentication](/features/authentication)
+- [Project Management](/features/projects)
+- [Architecture Overview](/architecture/overview)

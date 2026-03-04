@@ -1,0 +1,593 @@
+---
+title: 'WebSocket Setup'
+description: 'Configure WebSocket connections, channels, and event listeners for real-time features'
+icon: 'plug'
+---
+
+## Overview
+
+EduStack Smart uses **Laravel Echo** with **Laravel Reverb** to provide seamless WebSocket communication between the server and React frontend. This enables real-time updates for media processing, notifications, and collaborative features.
+
+## Architecture
+
+The WebSocket architecture consists of:
+
+1. **Laravel Reverb** - WebSocket server (Pusher protocol compatible)
+2. **Laravel Echo** - JavaScript client library
+3. **React Integration** - `@laravel/echo-react` package
+4. **Broadcasting** - Server-side event dispatching
+
+
+
+## Server Configuration
+
+### Broadcasting Setup
+
+Configure the broadcast driver in `.env`:
+
+```bash .env
+BROADCAST_CONNECTION=reverb
+
+# Reverb Configuration
+REVERB_APP_ID=edustack-app
+REVERB_APP_KEY=your-app-key
+REVERB_APP_SECRET=your-app-secret
+REVERB_HOST=localhost
+REVERB_PORT=8080
+REVERB_SCHEME=http
+```
+
+### Start Reverb Server
+
+Run the Reverb server:
+
+```bash
+# Development
+php artisan reverb:start
+
+# With debugging
+php artisan reverb:start --debug
+
+# Specific host and port
+php artisan reverb:start --host=0.0.0.0 --port=8080
+```
+
+For production deployment, see [Real-time Communication](/advanced/realtime#running-the-reverb-server).
+
+## Client Configuration
+
+### Installing Dependencies
+
+The required packages are already included:
+
+```json package.json
+{
+  "dependencies": {
+    "laravel-echo": "^1.16",
+    "@laravel/echo-react": "^1.0",
+    "pusher-js": "^8.4"
+  }
+}
+```
+
+### Echo Configuration
+
+Echo is configured globally in `app.tsx`:
+
+```typescript resources/js/app.tsx
+import { configureEcho } from '@laravel/echo-react';
+
+configureEcho({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    wssPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    forceTLS: false,
+    enabledTransports: ['ws', 'wss'],
+});
+```
+
+### Environment Variables
+
+Add to your `.env` file:
+
+```bash .env
+VITE_REVERB_APP_KEY=your-app-key
+VITE_REVERB_HOST=localhost
+VITE_REVERB_PORT=8080
+VITE_REVERB_SCHEME=http
+```
+
+<Warning>
+Make sure `VITE_REVERB_APP_KEY` matches `REVERB_APP_KEY` from the server configuration.
+</Warning>
+
+## Using WebSockets in React
+
+### Basic Usage
+
+Use the `useEcho` hook to listen for events:
+
+```typescript
+import { useEcho } from '@laravel/echo-react';
+import { useEffect } from 'react';
+import { router } from '@inertiajs/react';
+
+export default function MyComponent({ postId }) {
+    // Listen to 'post.{id}' channel for 'MediaProcessed' event
+    const echo = useEcho(`post.${postId}`, 'MediaProcessed', (event) => {
+        console.log('Media processed:', event);
+        // Reload data from server
+        router.reload({ only: ['post'] });
+    });
+
+    useEffect(() => {
+        // Start listening
+        echo.listen();
+        
+        // Cleanup: leave channel when component unmounts
+        return () => echo.leave();
+    }, [echo]);
+
+    return <div>Listening for updates...</div>;
+}
+```
+
+### Media Processing Example
+
+Real-world example from the Post Gallery component:
+
+```typescript resources/js/pages/member/blog/EditPost/EditPostGallery.tsx
+import { useEcho } from '@laravel/echo-react';
+import { router } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import EditPostGalleryItem from '@/components/member/blog/EditPostGalleryItem';
+import { Post } from '@/types';
+
+type EditPostGalleryProps = {
+    gallery: Post['media'];
+    postId: Post['id'];
+}
+
+export default function EditPostGallery({ gallery, postId }: EditPostGalleryProps) {
+    const [isModalActive, setIsModalActive] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    
+    // Listen for media processing completion
+    const echo = useEcho(`post.${postId}`, 'MediaProcessed', () => {
+        setProcessing(false);
+        // Reload only the post data (not entire page)
+        router.reload({ only: ['post'] });
+    });
+
+    useEffect(() => {
+        echo.listen()
+        return () => echo.leave()
+    }, [echo])
+
+    return (
+        <div>
+            <h2>Gallery Images</h2>
+            
+            <Button onClick={() => setIsModalActive(true)}>
+                Add Image
+            </Button>
+
+            <div className="grid grid-cols-3 gap-4">
+                {gallery.map((image) => (
+                    <EditPostGalleryItem
+                        key={image.id}
+                        processing={processing}
+                        setProcessing={setProcessing}
+                        image={image}
+                        postId={postId}
+                    />
+                ))}
+            </div>
+        </div>
+    )
+}
+```
+
+### Project Screenshots Example
+
+Similar implementation for projects:
+
+```typescript resources/js/pages/user/projects/EditProject/EditProjectGallery.tsx
+import { useEcho } from '@laravel/echo-react';
+import { router } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import { Project } from '@/types';
+
+type EditProjectGalleryProps = {
+    gallery: Project['media'];
+    projectId: Project['id'];
+}
+
+export default function EditProjectGallery({ gallery, projectId }: EditProjectGalleryProps) {
+    const [processing, setProcessing] = useState(false);
+    
+    const echo = useEcho(`project.${projectId}`, 'MediaProcessed', () => {
+        setProcessing(false);
+        router.reload({ only: ['project'] });
+    });
+
+    useEffect(() => {
+        echo.listen()
+        return () => echo.leave()
+    }, [echo])
+
+    return (
+        <div className="grid grid-cols-2 gap-4">
+            {gallery.map((screenshot) => (
+                <img 
+                    key={screenshot.id} 
+                    src={screenshot.url} 
+                    alt={screenshot.name}
+                />
+            ))}
+        </div>
+    )
+}
+```
+
+## Channel Types
+
+### Private Channels
+
+Private channels require authentication:
+
+```typescript
+// Listen to private channel
+const echo = useEcho(`post.${postId}`, 'MediaProcessed', (event) => {
+    console.log('Received event:', event);
+});
+```
+
+Authorization is handled in `routes/channels.php`:
+
+```php routes/channels.php
+Broadcast::channel('post.{id}', function ($user, $id) {
+    return (int) $user->id === (int) Post::find($id)->user_id;
+});
+```
+
+### Public Channels
+
+Public channels don't require authentication:
+
+```typescript
+// Listen to public channel
+const echo = useEcho('announcements', 'NewAnnouncement', (event) => {
+    console.log('New announcement:', event.message);
+});
+```
+
+### Presence Channels
+
+Presence channels track who's online:
+
+```typescript
+import Echo from 'laravel-echo';
+
+const channel = Echo.join(`project.${projectId}`)
+    .here((users) => {
+        console.log('Users here:', users);
+    })
+    .joining((user) => {
+        console.log('User joined:', user.name);
+    })
+    .leaving((user) => {
+        console.log('User left:', user.name);
+    })
+    .listen('ProjectUpdated', (event) => {
+        console.log('Project updated');
+    });
+
+// Cleanup
+return () => channel.leave();
+```
+
+## Event Data Structure
+
+Events broadcast data from the `broadcastWith()` method:
+
+```php app/Events/MediaProcessed.php
+public function broadcastWith(): array
+{
+    return [
+        'id' => $this->model_id,
+        'type' => $this->model_type,
+        'message' => 'Procesamiento de ' . $this->model_type . ' completado.',
+    ];
+}
+```
+
+Access this data in the event handler:
+
+```typescript
+const echo = useEcho(`post.${postId}`, 'MediaProcessed', (event) => {
+    console.log(event.id);      // Model ID
+    console.log(event.type);    // Model type
+    console.log(event.message); // Success message
+});
+```
+
+## Advanced Patterns
+
+### Multiple Event Listeners
+
+Listen to multiple events on the same channel:
+
+```typescript
+import Echo from 'laravel-echo';
+import { useEffect } from 'react';
+
+export default function MultiEventComponent({ postId }) {
+    useEffect(() => {
+        const channel = Echo.private(`post.${postId}`);
+        
+        channel
+            .listen('MediaProcessed', (event) => {
+                console.log('Media processed');
+            })
+            .listen('PostPublished', (event) => {
+                console.log('Post published');
+            })
+            .listen('CommentAdded', (event) => {
+                console.log('Comment added');
+            });
+        
+        return () => channel.stopListening('MediaProcessed')
+                           .stopListening('PostPublished')
+                           .stopListening('CommentAdded');
+    }, [postId]);
+    
+    return <div>Listening...</div>;
+}
+```
+
+### Conditional Listening
+
+Only listen when needed:
+
+```typescript
+export default function ConditionalComponent({ postId, isEditing }) {
+    const echo = useEcho(`post.${postId}`, 'MediaProcessed', (event) => {
+        console.log('Media processed');
+    });
+
+    useEffect(() => {
+        // Only listen when editing
+        if (isEditing) {
+            echo.listen();
+        } else {
+            echo.leave();
+        }
+        
+        return () => echo.leave();
+    }, [echo, isEditing]);
+    
+    return <div>...</div>;
+}
+```
+
+### Error Handling
+
+Handle connection errors:
+
+```typescript
+import Echo from 'laravel-echo';
+import { useEffect, useState } from 'react';
+
+export default function ErrorHandlingComponent() {
+    const [connectionStatus, setConnectionStatus] = useState('connecting');
+
+    useEffect(() => {
+        Echo.connector.pusher.connection.bind('connected', () => {
+            setConnectionStatus('connected');
+            console.log('WebSocket connected');
+        });
+        
+        Echo.connector.pusher.connection.bind('disconnected', () => {
+            setConnectionStatus('disconnected');
+            console.log('WebSocket disconnected');
+        });
+        
+        Echo.connector.pusher.connection.bind('error', (error) => {
+            setConnectionStatus('error');
+            console.error('WebSocket error:', error);
+        });
+        
+        return () => {
+            Echo.connector.pusher.connection.unbind_all();
+        };
+    }, []);
+
+    return (
+        <div>
+            <span>Status: {connectionStatus}</span>
+        </div>
+    );
+}
+```
+
+## Testing WebSockets
+
+### Unit Testing
+
+Mock Echo in tests:
+
+```typescript
+import { render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
+
+vi.mock('@laravel/echo-react', () => ({
+    useEcho: vi.fn(() => ({
+        listen: vi.fn(),
+        leave: vi.fn(),
+    })),
+}));
+
+test('component listens for events', () => {
+    render(<EditPostGallery postId={1} gallery={[]} />);
+    // Test component behavior
+});
+```
+
+### Manual Testing
+
+Test broadcasting from Tinker:
+
+```bash
+php artisan tinker
+```
+
+```php
+// Dispatch test event
+event(new \App\Events\MediaProcessed(1, 'post'));
+
+// Check if event was received in browser console
+```
+
+## Production Deployment
+
+### SSL/TLS Configuration
+
+For production, use HTTPS and WSS:
+
+```bash .env
+REVERB_SCHEME=https
+VITE_REVERB_SCHEME=https
+```
+
+Configure in `app.tsx`:
+
+```typescript
+configureEcho({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT ?? 443,
+    wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
+    forceTLS: true, // Force TLS in production
+    enabledTransports: ['wss'],
+});
+```
+
+### Nginx Configuration
+
+Proxy WebSocket connections:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+    
+    # WebSocket proxy for Reverb
+    location /app {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Supervisor Configuration
+
+Run Reverb as a service:
+
+```ini /etc/supervisor/conf.d/reverb.conf
+[program:reverb]
+command=php /var/www/edustack/artisan reverb:start
+autostart=true
+autorestart=true
+user=www-data
+redirect_stderr=true
+stdout_logfile=/var/www/edustack/storage/logs/reverb.log
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection Refused">
+    **Symptoms:** WebSocket connection fails
+    
+    **Solutions:**
+    - Check Reverb is running: `php artisan reverb:start`
+    - Verify port is not blocked by firewall
+    - Check `REVERB_HOST` and `VITE_REVERB_HOST` match
+    - Ensure port matches between server and client
+  </Accordion>
+
+  <Accordion title="Authentication Failed">
+    **Symptoms:** 403 error on private channels
+    
+    **Solutions:**
+    - Ensure user is authenticated
+    - Check channel authorization in `routes/channels.php`
+    - Verify CSRF token is included
+    - Check session is working correctly
+  </Accordion>
+
+  <Accordion title="Events Not Received">
+    **Symptoms:** Events dispatched but not received
+    
+    **Solutions:**
+    - Check `BROADCAST_CONNECTION=reverb` in `.env`
+    - Verify event implements `ShouldBroadcast`
+    - Ensure channel name matches between server and client
+    - Check browser console for errors
+    - Use `--debug` flag to see Reverb logs
+  </Accordion>
+
+  <Accordion title="CORS Issues">
+    **Symptoms:** CORS errors in browser console
+    
+    **Solutions:**
+    - Reverb handles CORS automatically
+    - Check `REVERB_HOST` is accessible from frontend
+    - Verify frontend and backend are on same domain in production
+  </Accordion>
+</AccordionGroup>
+
+## Performance Tips
+
+<Card title="Optimize Channel Usage" icon="gauge-high">
+  - Use specific channels instead of broadcasting to all users
+  - Leave channels when components unmount
+  - Avoid creating many channel subscriptions
+  - Use presence channels only when needed (they're more resource-intensive)
+</Card>
+
+<Card title="Keep Payloads Small" icon="feather">
+  - Only send necessary data in `broadcastWith()`
+  - Send IDs, not full models
+  - Let clients fetch additional data via API
+  - Use compression for large payloads
+</Card>
+
+<Card title="Connection Management" icon="network-wired">
+  - Implement reconnection logic for unstable connections
+  - Show connection status to users
+  - Handle offline scenarios gracefully
+  - Clean up listeners when components unmount
+</Card>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Real-time Communication" icon="wave-pulse" href="/advanced/realtime">
+    Deep dive into broadcasting architecture
+  </Card>
+  <Card title="Media Processing" icon="image" href="/advanced/media-processing">
+    Learn about async media processing
+  </Card>
+</CardGroup>

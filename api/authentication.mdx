@@ -1,0 +1,295 @@
+---
+title: 'Authentication'
+description: 'Using Laravel Sanctum for API authentication'
+---
+
+# Authentication
+
+The EduStack Smart API uses [Laravel Sanctum](https://laravel.com/docs/11.x/sanctum) for API token authentication. Sanctum provides a lightweight authentication system for SPAs and mobile applications.
+
+## Authentication Methods
+
+The API supports two authentication methods:
+
+1. **Token-based authentication** - For third-party applications and mobile apps
+2. **Session-based authentication** - For first-party SPAs (stateful API)
+
+## Token Authentication
+
+### Overview
+
+Token authentication requires including a Bearer token in the `Authorization` header of your API requests.
+
+### Getting an API Token
+
+API tokens are typically generated through your application's user interface or authentication endpoints. The standard Laravel authentication flow using Sanctum would involve:
+
+1. **User Login** - Authenticate with credentials
+2. **Token Creation** - Generate a Sanctum token for the user
+3. **Token Storage** - Store the token securely in your application
+
+<Note>
+The specific token creation endpoint depends on your authentication implementation. Common approaches include using Laravel Fortify or custom authentication controllers.
+</Note>
+
+### Example Token Creation
+
+In a typical Laravel Sanctum implementation, tokens are created like this:
+
+```php
+// Example: In your authentication controller
+$token = $user->createToken('api-token')->plainTextToken;
+
+return response()->json([
+    'token' => $token,
+    'user' => $user
+]);
+```
+
+### Using Tokens in Requests
+
+Once you have a token, include it in the `Authorization` header:
+
+#### Request Headers
+
+```http
+Authorization: Bearer {your-token-here}
+Accept: application/json
+Content-Type: application/json
+```
+
+#### Example with cURL
+
+```bash
+curl https://your-domain.com/api/user \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|abcdefghijklmnopqrstuvwxyz123456"
+```
+
+#### Example with JavaScript (fetch)
+
+```javascript
+const token = 'your-api-token';
+
+fetch('https://your-domain.com/api/user', {
+  method: 'GET',
+  headers: {
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+})
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error('Error:', error));
+```
+
+#### Example with Axios
+
+```javascript
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'https://your-domain.com/api',
+  headers: {
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+api.get('/user')
+  .then(response => console.log(response.data))
+  .catch(error => console.error(error));
+```
+
+## Session-Based Authentication (Stateful API)
+
+For first-party SPAs, EduStack Smart is configured to support stateful API authentication using cookies.
+
+### Configuration
+
+The application is configured with stateful API support in `bootstrap/app.php`:
+
+```php
+$middleware->statefulApi();
+```
+
+### Stateful Domains
+
+The following domains are configured for stateful authentication (from `config/sanctum.php`):
+
+- `localhost`
+- `localhost:3000`
+- `127.0.0.1`
+- `127.0.0.1:8000`
+- `::1`
+- Your application's current URL
+
+### CSRF Protection
+
+When using session-based authentication, you need to include a CSRF token:
+
+1. **Get CSRF Cookie** - First, make a request to `/sanctum/csrf-cookie`
+2. **Include Token** - The CSRF token will be set as a cookie and automatically included
+
+```javascript
+// First request to get CSRF cookie
+await axios.get('/sanctum/csrf-cookie');
+
+// Then make authenticated requests
+await axios.get('/api/user');
+```
+
+## Protected Endpoints
+
+Endpoints protected by authentication use the `auth:sanctum` middleware. Currently protected endpoints:
+
+### GET /api/user
+
+Requires authentication. Returns the authenticated user's data.
+
+See the [Users API documentation](/api/users) for details.
+
+## Token Management
+
+### Token Expiration
+
+By default, Sanctum tokens do not expire (configured in `config/sanctum.php`):
+
+```php
+'expiration' => null,
+```
+
+Tokens remain valid until explicitly revoked.
+
+### Token Abilities
+
+Sanctum supports token abilities (permissions) for fine-grained access control:
+
+```php
+// Creating a token with specific abilities
+$token = $user->createToken('api-token', ['blog:read', 'user:read'])->plainTextToken;
+
+// Checking abilities in your application
+if ($user->tokenCan('blog:read')) {
+    // User has blog read permission
+}
+```
+
+### Revoking Tokens
+
+**Revoke All Tokens**
+
+```php
+$user->tokens()->delete();
+```
+
+**Revoke Current Token**
+
+```php
+$request->user()->currentAccessToken()->delete();
+```
+
+**Revoke Specific Token**
+
+```php
+$user->tokens()->where('id', $tokenId)->delete();
+```
+
+## Authentication Errors
+
+### 401 Unauthorized
+
+Returned when authentication is required but not provided or invalid:
+
+```json
+{
+  "message": "Unauthenticated."
+}
+```
+
+**Common Causes:**
+- Missing `Authorization` header
+- Invalid or expired token
+- Malformed token format
+
+**Solution:**
+```bash
+# Ensure proper header format
+Authorization: Bearer YOUR_TOKEN_HERE
+```
+
+### 403 Forbidden
+
+Returned when authenticated but lacking required permissions:
+
+```json
+{
+  "message": "This action is unauthorized."
+}
+```
+
+## Security Best Practices
+
+<Warning>
+**Never expose API tokens in client-side code or public repositories**
+</Warning>
+
+### Token Storage
+
+- **Mobile Apps**: Use secure storage (Keychain on iOS, KeyStore on Android)
+- **Web Apps**: Store in httpOnly cookies when possible
+- **Server-to-Server**: Use environment variables or secret management services
+
+### Token Security
+
+1. **Use HTTPS** - Always transmit tokens over encrypted connections
+2. **Rotate Tokens** - Implement token rotation for long-lived applications
+3. **Limit Abilities** - Grant minimal required permissions
+4. **Monitor Usage** - Track and audit token usage
+5. **Revoke Compromised Tokens** - Immediately revoke any suspected compromised tokens
+
+### Token Prefix
+
+Optionally configure a token prefix for secret scanning:
+
+```env
+SANCTUM_TOKEN_PREFIX=edustack_
+```
+
+This helps platforms like GitHub detect accidentally committed tokens.
+
+## Testing Authentication
+
+Test if your token is valid:
+
+```bash
+curl https://your-domain.com/api/user \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "id": 1,
+  "name": "John Doe",
+  "email": "john@example.com",
+  "email_verified_at": "2026-01-15T10:30:00.000000Z",
+  "is_active": true,
+  "created_at": "2026-01-01T00:00:00.000000Z",
+  "updated_at": "2026-03-04T10:30:00.000000Z"
+}
+```
+
+**Error Response (401 Unauthorized):**
+```json
+{
+  "message": "Unauthenticated."
+}
+```
+
+## Next Steps
+
+- Learn about available [API endpoints](/api/overview)
+- Explore the [Blog API](/api/blog)
+- Check the [Users API](/api/users)

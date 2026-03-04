@@ -1,0 +1,441 @@
+---
+title: 'Users API'
+description: 'Retrieve authenticated user information'
+---
+
+# Users API
+
+The Users API endpoint provides access to authenticated user information.
+
+## Endpoint
+
+### GET /api/user
+
+Retrieve the currently authenticated user's information.
+
+**Authentication:** Required (Laravel Sanctum)
+
+**Middleware:** `auth:sanctum`
+
+## Request
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+  
+  Format: `Bearer {your-token}`
+</ParamField>
+
+<ParamField header="Accept" type="string" default="application/json">
+  Expected response format
+</ParamField>
+
+### Example Request
+
+```bash
+curl "https://your-domain.com/api/user" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|abcdefghijklmnopqrstuvwxyz123456"
+```
+
+## Response
+
+### Response Schema
+
+Returns the authenticated user object with the following fields:
+
+<ResponseField name="id" type="integer">
+  Unique user identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  User's first name
+</ResponseField>
+
+<ResponseField name="father_last_name" type="string">
+  User's paternal surname (father's last name)
+</ResponseField>
+
+<ResponseField name="mother_last_name" type="string">
+  User's maternal surname (mother's last name)
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address
+</ResponseField>
+
+<ResponseField name="email_verified_at" type="string | null">
+  Email verification timestamp (ISO 8601 format)
+  
+  `null` if email is not verified
+</ResponseField>
+
+<ResponseField name="is_active" type="boolean">
+  Whether the user account is active
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Account creation timestamp (ISO 8601 format)
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  Last account update timestamp (ISO 8601 format)
+</ResponseField>
+
+### Hidden Fields
+
+The following fields are automatically excluded from API responses for security:
+
+- `password` - Hashed password
+- `remember_token` - Session remember token
+- `two_factor_secret` - 2FA secret key
+- `two_factor_recovery_codes` - 2FA recovery codes
+- `two_factor_confirmed_at` - 2FA confirmation timestamp
+
+### Example Response
+
+**Success Response (200 OK):**
+
+```json
+{
+  "id": 1,
+  "name": "John",
+  "father_last_name": "Doe",
+  "mother_last_name": "Smith",
+  "email": "john.doe@example.com",
+  "email_verified_at": "2026-01-15T10:30:00.000000Z",
+  "is_active": true,
+  "created_at": "2026-01-01T00:00:00.000000Z",
+  "updated_at": "2026-03-04T10:30:00.000000Z"
+}
+```
+
+## Implementation Details
+
+### Route Definition
+
+Defined in `routes/api.php`:
+
+```php
+Route::get('/user', function (Request $request) {
+    return $request->user();
+})->middleware('auth:sanctum');
+```
+
+### Authentication Flow
+
+1. **Request Received** - Incoming request to `/api/user`
+2. **Middleware Check** - `auth:sanctum` middleware validates the Bearer token
+3. **User Resolution** - Laravel resolves the authenticated user from the token
+4. **Response** - User object is serialized to JSON (hidden fields removed)
+
+### User Model
+
+The User model (`app/Models/User.php`) uses:
+
+- **HasApiTokens** - Laravel Sanctum token management
+- **HasRoles** - Spatie Permission role management
+- **TwoFactorAuthenticatable** - Laravel Fortify 2FA support
+- **MustVerifyEmail** - Email verification requirement
+
+### User Relationships
+
+The user model has relationships with other resources:
+
+```php
+// User's blog posts
+public function posts()
+{
+    return $this->hasMany(Post::class);
+}
+
+// User's events (as organizer)
+public function events()
+{
+    return $this->hasMany(Event::class);
+}
+
+// User's projects (as author)
+public function projects()
+{
+    return $this->hasMany(Project::class);
+}
+
+// Projects where user is a collaborator
+public function projectsCollaborations()
+{
+    return $this->belongsToMany(Project::class, 'project_collaborators', 
+        'user_id', 'project_id')->withPivot('id');
+}
+```
+
+## Usage Examples
+
+### JavaScript (Fetch API)
+
+```javascript
+const token = 'your-api-token';
+
+fetch('https://your-domain.com/api/user', {
+  method: 'GET',
+  headers: {
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+})
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Unauthorized');
+    }
+    return response.json();
+  })
+  .then(user => {
+    console.log(`Welcome, ${user.name} ${user.father_last_name}!`);
+    console.log(`Email: ${user.email}`);
+    console.log(`Account status: ${user.is_active ? 'Active' : 'Inactive'}`);
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+### JavaScript (Axios)
+
+```javascript
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: 'https://your-domain.com/api',
+  headers: {
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+try {
+  const response = await api.get('/user');
+  const user = response.data;
+  
+  console.log('User ID:', user.id);
+  console.log('Full name:', `${user.name} ${user.father_last_name} ${user.mother_last_name}`);
+  console.log('Email verified:', user.email_verified_at !== null);
+} catch (error) {
+  if (error.response?.status === 401) {
+    console.error('Authentication failed. Please log in again.');
+  } else {
+    console.error('Error fetching user:', error.message);
+  }
+}
+```
+
+### PHP
+
+```php
+use Illuminate\Support\Facades\Http;
+
+$token = 'your-api-token';
+
+$response = Http::withHeaders([
+    'Accept' => 'application/json',
+    'Authorization' => 'Bearer ' . $token,
+])->get('https://your-domain.com/api/user');
+
+if ($response->successful()) {
+    $user = $response->json();
+    
+    echo "User ID: " . $user['id'] . "\n";
+    echo "Name: " . $user['name'] . " " . $user['father_last_name'] . "\n";
+    echo "Email: " . $user['email'] . "\n";
+    echo "Active: " . ($user['is_active'] ? 'Yes' : 'No') . "\n";
+} else {
+    echo "Error: " . $response->status() . "\n";
+}
+```
+
+### Python
+
+```python
+import requests
+
+token = 'your-api-token'
+
+headers = {
+    'Accept': 'application/json',
+    'Authorization': f'Bearer {token}'
+}
+
+response = requests.get('https://your-domain.com/api/user', headers=headers)
+
+if response.status_code == 200:
+    user = response.json()
+    
+    print(f"User ID: {user['id']}")
+    print(f"Name: {user['name']} {user['father_last_name']} {user['mother_last_name']}")
+    print(f"Email: {user['email']}")
+    print(f"Active: {'Yes' if user['is_active'] else 'No'}")
+    print(f"Email verified: {'Yes' if user['email_verified_at'] else 'No'}")
+elif response.status_code == 401:
+    print("Authentication failed. Invalid or expired token.")
+else:
+    print(f"Error: {response.status_code}")
+```
+
+### cURL with Variables
+
+```bash
+#!/bin/bash
+
+TOKEN="your-api-token"
+API_URL="https://your-domain.com/api/user"
+
+response=$(curl -s -w "\n%{http_code}" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  "$API_URL")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+if [ "$http_code" -eq 200 ]; then
+  echo "User data retrieved successfully:"
+  echo "$body" | jq '.'
+else
+  echo "Error: HTTP $http_code"
+  echo "$body"
+fi
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when the Bearer token is missing, invalid, or expired:
+
+```json
+{
+  "message": "Unauthenticated."
+}
+```
+
+**Common Causes:**
+- Missing `Authorization` header
+- Invalid token format
+- Expired or revoked token
+- Token not found in database
+
+**Solution:**
+```bash
+# Verify your token format
+Authorization: Bearer YOUR_ACTUAL_TOKEN
+
+# Ensure no extra spaces or characters
+# Token should look like: 1|abcdefghijklmnopqrstuvwxyz123456
+```
+
+### 500 Internal Server Error
+
+If there's a server-side error:
+
+```json
+{
+  "message": "Server Error"
+}
+```
+
+## Account Status
+
+### Active vs Inactive
+
+The `is_active` field indicates whether the user account is active:
+
+```javascript
+if (user.is_active) {
+  // User can access the system
+} else {
+  // User account is deactivated
+}
+```
+
+Inactive accounts may be restricted by the `ActiveAccount` middleware in the application.
+
+### Email Verification
+
+The User model implements `MustVerifyEmail`:
+
+```javascript
+if (user.email_verified_at !== null) {
+  // Email is verified
+  console.log(`Verified on: ${user.email_verified_at}`);
+} else {
+  // Email needs verification
+  console.log('Please verify your email address');
+}
+```
+
+## Role and Permission System
+
+The User model includes Spatie Permission for role-based access control:
+
+```php
+// User has roles (admin, teacher, student, etc.)
+// These are not included in the default API response
+// but can be loaded if needed:
+
+Route::get('/user', function (Request $request) {
+    return $request->user()->load('roles', 'permissions');
+})->middleware('auth:sanctum');
+```
+
+## Two-Factor Authentication
+
+Users may have 2FA enabled (Laravel Fortify):
+
+- `two_factor_secret` - Encrypted TOTP secret
+- `two_factor_recovery_codes` - Encrypted recovery codes  
+- `two_factor_confirmed_at` - When 2FA was confirmed
+
+These fields are **always hidden** from API responses for security.
+
+## Security Considerations
+
+<Warning>
+**Never log or expose user tokens in client-side code or error messages**
+</Warning>
+
+### Best Practices
+
+1. **Store tokens securely** - Use secure storage mechanisms
+2. **Use HTTPS** - Always transmit tokens over encrypted connections
+3. **Handle 401 errors** - Implement proper re-authentication flows
+4. **Respect privacy** - Only request user data when necessary
+5. **Cache responsibly** - Don't cache sensitive user data in local storage
+
+## Testing the Endpoint
+
+### Quick Test
+
+```bash
+# Replace YOUR_TOKEN with your actual Sanctum token
+curl https://your-domain.com/api/user \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Accept: application/json"
+```
+
+### Expected Success
+
+If authentication succeeds, you'll receive a 200 OK response with user data.
+
+### Expected Failure
+
+If authentication fails, you'll receive a 401 Unauthorized response:
+
+```json
+{
+  "message": "Unauthenticated."
+}
+```
+
+## Related Resources
+
+- [Authentication](/api/authentication) - How to get and use API tokens
+- [API Overview](/api/overview) - General API information
+- [Blog API](/api/blog) - Access blog posts (some authored by users)

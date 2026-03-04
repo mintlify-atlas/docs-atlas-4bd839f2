@@ -1,0 +1,598 @@
+---
+title: 'Media Processing'
+description: 'Complete guide to media upload, processing, and optimization using Spatie Media Library'
+icon: 'image'
+---
+
+## Overview
+
+EduStack Smart uses **Spatie Media Library** for comprehensive media management, including uploads, storage, conversions, and optimization. Media files are processed asynchronously and stored on Amazon S3.
+
+## Architecture
+
+The media processing flow consists of five stages:
+
+<Steps>
+  <Step title="Upload">
+    User uploads media through the web interface
+  </Step>
+  <Step title="Store">
+    Original file is stored on S3
+  </Step>
+  <Step title="Queue">
+    Conversion jobs are queued for processing
+  </Step>
+  <Step title="Process">
+    Queue workers generate conversions and responsive images
+  </Step>
+  <Step title="Broadcast">
+    Completion event is broadcast to the client
+  </Step>
+</Steps>
+
+## Model Configuration
+
+Models that handle media must implement the `HasMedia` interface and use the `InteractsWithMedia` trait.
+
+### Post Model
+
+Posts support a gallery of images:
+
+```php app/Models/Post.php
+namespace App\Models;
+
+use Spatie\Image\Enums\Fit;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model implements HasMedia
+{
+    use InteractsWithMedia;
+
+    /**
+     * Register media collections
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('gallery')
+            ->useDisk('s3');
+    }
+
+    /**
+     * Register media conversions
+     */
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        // Hero image for full-width display
+        $this->addMediaConversion('hero')
+            ->fit(Fit::Crop, 1920, 1080)
+            ->quality(85)
+            ->sharpen(10);
+
+        // Main image with responsive sizes
+        $this->addMediaConversion('main')
+            ->fit(Fit::Crop, 1200, 620)
+            ->quality(85)
+            ->sharpen(10)
+            ->withResponsiveImages();
+    }
+}
+```
+
+### Project Model
+
+Projects support screenshot galleries:
+
+```php app/Models/Project.php
+namespace App\Models;
+
+use Spatie\Image\Enums\Fit;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Model;
+
+class Project extends Model implements HasMedia
+{
+    use InteractsWithMedia;
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('screenshots')
+            ->useDisk('s3');
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('screenshot')
+            ->fit(Fit::Crop, 1920, 1080)
+            ->quality(85)
+            ->sharpen(10)
+            ->withResponsiveImages();
+    }
+}
+```
+
+### Event Model
+
+Events support a single logo image:
+
+```php app/Models/Event.php
+namespace App\Models;
+
+use Spatie\Image\Enums\Fit;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Model;
+
+class Event extends Model implements HasMedia
+{
+    use InteractsWithMedia;
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('logo')
+            ->useDisk('s3')
+            ->singleFile(); // Automatically replaces previous file
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->addMediaConversion('thumbnail')
+            ->fit(Fit::Crop, 1080, 1080)
+            ->quality(85)
+            ->sharpen(10)
+            ->withResponsiveImages();
+    }
+}
+```
+
+## Media Collections
+
+Media collections organize files by purpose:
+
+<Tabs>
+  <Tab title="Gallery">
+    Multiple images for posts
+    
+    ```php
+    $this->addMediaCollection('gallery')
+        ->useDisk('s3');
+    ```
+  </Tab>
+  
+  <Tab title="Screenshots">
+    Multiple project screenshots
+    
+    ```php
+    $this->addMediaCollection('screenshots')
+        ->useDisk('s3');
+    ```
+  </Tab>
+  
+  <Tab title="Logo">
+    Single event logo (auto-replaces)
+    
+    ```php
+    $this->addMediaCollection('logo')
+        ->useDisk('s3')
+        ->singleFile();
+    ```
+  </Tab>
+  
+  <Tab title="Banner">
+    Single event activity banner
+    
+    ```php
+    $this->addMediaCollection('banner_image')
+        ->useDisk('s3')
+        ->singleFile();
+    ```
+  </Tab>
+</Tabs>
+
+## Image Conversions
+
+Conversions generate optimized versions of uploaded images:
+
+### Fit Methods
+
+```php
+use Spatie\Image\Enums\Fit;
+
+// Crop to exact dimensions (may cut off parts)
+->fit(Fit::Crop, 1200, 620)
+
+// Contain within dimensions (maintains aspect ratio)
+->fit(Fit::Contain, 1200, 620)
+
+// Stretch to fill dimensions (distorts image)
+->fit(Fit::Stretch, 1200, 620)
+
+// Fill dimensions with background color
+->fit(Fit::Fill, 1200, 620)
+```
+
+### Quality and Sharpening
+
+```php
+// Set JPEG quality (1-100)
+->quality(85) // Good balance of quality and file size
+
+// Apply sharpening filter (1-100)
+->sharpen(10) // Subtle sharpening
+```
+
+### Responsive Images
+
+```php
+// Generate multiple sizes for responsive images
+->withResponsiveImages()
+
+// This creates variants at different widths:
+// - original width
+// - 70% of original
+// - 49% of original
+// - 34% of original
+// etc.
+```
+
+## Upload Implementation
+
+### Controller
+
+Handle image uploads in your controller:
+
+```php app/Http/Controllers/Member/Blog/PostGalleryController.php
+namespace App\Http\Controllers\Member\Blog;
+
+use App\Models\Post;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Validation\ValidationException;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+
+class PostGalleryController extends Controller
+{
+    /**
+     * Upload a new image to the post gallery
+     */
+    public function store(Request $request, Post $post)
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpg,png,jpeg,webp'],
+        ]);
+
+        // Add media from request
+        $post->addMediaFromRequest('image')
+            ->toMediaCollection('gallery');
+
+        return back()->with('message', 'Post actualizado correctamente.');
+    }
+
+    /**
+     * Delete an image from the gallery
+     */
+    public function destroy(Request $request, Post $post, Media $media)
+    {
+        // Ensure at least one image remains
+        if($post->media()->count() == 1){
+            throw ValidationException::withMessages([
+                'image' => 'El post debe tener al menos una imagen.',
+            ]);
+        }
+
+        $media->delete();
+        return back()->with('message', 'Post actualizado correctamente.');
+    }
+}
+```
+
+### Routes
+
+```php routes/web.php
+use App\Http\Controllers\Member\Blog\PostGalleryController;
+
+Route::middleware(['auth'])->group(function () {
+    Route::post('/posts/{post}/gallery', [PostGalleryController::class, 'store'])
+        ->name('posts.gallery.store');
+    
+    Route::delete('/posts/{post}/gallery/{media}', [PostGalleryController::class, 'destroy'])
+        ->name('posts.gallery.destroy');
+});
+```
+
+## Async Processing Flow
+
+When media is uploaded, here's what happens behind the scenes:
+
+<CodeGroup>
+```php "1. User uploads image"
+$post->addMediaFromRequest('image')
+    ->toMediaCollection('gallery');
+```
+
+```php "2. Original saved to S3"
+// File stored at:
+// s3://bucket-name/post-id/image-name.jpg
+```
+
+```php "3. Jobs queued"
+// Two jobs are automatically queued:
+PerformConversionsJob::dispatch($media);
+GenerateResponsiveImagesJob::dispatch($media);
+```
+
+```php "4. Workers process"
+// Queue worker executes:
+// - Generate 'hero' conversion (1920x1080)
+// - Generate 'main' conversion (1200x620)
+// - Generate responsive variants
+// - Apply quality and sharpening
+// - Upload all to S3
+```
+
+```php "5. Event broadcast"
+event(new MediaProcessed($post->id, 'post'));
+```
+</CodeGroup>
+
+## Client-Side Integration
+
+React components listen for processing completion:
+
+```typescript resources/js/pages/member/blog/EditPost/EditPostGallery.tsx
+import { useEcho } from '@laravel/echo-react';
+import { router } from '@inertiajs/react';
+import { useEffect } from 'react';
+
+export default function EditPostGallery({ gallery, postId }) {
+    // Listen for MediaProcessed event
+    const echo = useEcho(`post.${postId}`, 'MediaProcessed', () => {
+        // Reload post data when processing completes
+        router.reload({ only: ['post'] });
+    });
+
+    useEffect(() => {
+        echo.listen()
+        return () => echo.leave()
+    }, [echo])
+
+    return (
+        <div>
+            {gallery.map((image) => (
+                <img 
+                    key={image.id} 
+                    src={image.url} 
+                    alt={image.name}
+                />
+            ))}
+        </div>
+    )
+}
+```
+
+## Retrieving Media
+
+### Get All Media
+
+```php
+// Get all media items
+$media = $post->getMedia('gallery');
+
+// Get first media item
+$firstImage = $post->getFirstMedia('gallery');
+
+// Check if has media
+if ($post->hasMedia('gallery')) {
+    // ...
+}
+```
+
+### Get Media URLs
+
+```php
+// Get original URL
+$url = $media->getUrl();
+
+// Get conversion URL
+$heroUrl = $media->getUrl('hero');
+$mainUrl = $media->getUrl('main');
+
+// Get full URL (S3 path)
+$fullUrl = $media->getFullUrl('main');
+
+// Get temporary URL (for private files)
+$tempUrl = $media->getTemporaryUrl(now()->addMinutes(30));
+```
+
+### Get Responsive Images
+
+```php
+// Get responsive images HTML
+$html = $media->img('main')
+    ->attributes(['class' => 'w-full h-auto'])
+    ->toHtml();
+
+// Outputs:
+// <img 
+//     src="/media/1/main.jpg" 
+//     srcset="/media/1/main-640w.jpg 640w, /media/1/main-1024w.jpg 1024w"
+//     sizes="100vw"
+//     class="w-full h-auto"
+// />
+```
+
+## Storage Configuration
+
+### S3 Disk
+
+```php config/filesystems.php
+'s3' => [
+    'driver' => 's3',
+    'key' => env('AWS_ACCESS_KEY_ID'),
+    'secret' => env('AWS_SECRET_ACCESS_KEY'),
+    'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+    'bucket' => env('AWS_BUCKET'),
+    'url' => env('AWS_URL'),
+    'endpoint' => env('AWS_ENDPOINT'),
+    'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+],
+```
+
+### Environment Variables
+
+```bash .env
+AWS_ACCESS_KEY_ID=your-key-id
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_DEFAULT_REGION=us-east-1
+AWS_BUCKET=edustack-media
+AWS_URL=https://edustack-media.s3.amazonaws.com
+
+MEDIA_DISK=s3
+```
+
+## Advanced Features
+
+### Custom Properties
+
+Store metadata with media:
+
+```php
+$post->addMediaFromRequest('image')
+    ->withCustomProperties(['author' => 'John Doe'])
+    ->toMediaCollection('gallery');
+
+// Retrieve
+$author = $media->getCustomProperty('author');
+```
+
+### Manipulations
+
+Apply custom manipulations:
+
+```php
+use Spatie\Image\Enums\Fit;
+use Spatie\Image\Enums\AlignPosition;
+
+$this->addMediaConversion('custom')
+    ->fit(Fit::Crop, 800, 600)
+    ->quality(90)
+    ->sharpen(15)
+    ->greyscale()
+    ->blur(10)
+    ->brightness(5)
+    ->contrast(5)
+    ->gamma(1.5)
+    ->flip('h') // horizontal flip
+    ->sepia();
+```
+
+### Queue Management
+
+```php
+// Don't queue conversions for this upload
+$post->addMediaFromRequest('image')
+    ->withoutManipulations()
+    ->toMediaCollection('gallery');
+
+// Queue to specific queue
+$post->addMediaFromRequest('image')
+    ->onQueue('high-priority')
+    ->toMediaCollection('gallery');
+```
+
+## File Size Limits
+
+Configure in `config/media-library.php`:
+
+```php
+'max_file_size' => 1024 * 1024 * 10, // 10MB
+```
+
+Validate in controller:
+
+```php
+$request->validate([
+    'image' => ['required', 'image', 'max:10240'], // 10MB in KB
+]);
+```
+
+## Image Optimization
+
+Spatie Media Library includes automatic optimization using:
+
+- **Jpegoptim** - Optimizes JPEG files
+- **Pngquant** - Optimizes PNG files
+- **Optipng** - Further PNG optimization
+- **Svgo** - Optimizes SVG files
+- **Gifsicle** - Optimizes GIF files
+- **Cwebp** - Converts to WebP format
+- **Avifenc** - Converts to AVIF format
+
+Optimizers are configured in `config/media-library.php` and run automatically during conversion.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Images Not Processing">
+    Check queue workers are running:
+    ```bash
+    php artisan queue:work --queue=media_processing
+    ```
+    
+    Check failed jobs:
+    ```bash
+    php artisan queue:failed
+    ```
+  </Accordion>
+
+  <Accordion title="S3 Upload Errors">
+    Verify AWS credentials:
+    ```bash
+    php artisan tinker
+    Storage::disk('s3')->put('test.txt', 'Hello World');
+    ```
+    
+    Check bucket permissions and CORS configuration.
+  </Accordion>
+
+  <Accordion title="Memory Errors">
+    Processing large images requires memory. Increase in `php.ini`:
+    ```ini
+    memory_limit = 256M
+    ```
+    
+    Or set timeout in job:
+    ```php
+    public $timeout = 600; // 10 minutes
+    ```
+  </Accordion>
+
+  <Accordion title="Conversions Not Generated">
+    Ensure GD or Imagick is installed:
+    ```bash
+    php -m | grep -i gd
+    php -m | grep -i imagick
+    ```
+    
+    Set image driver in `.env`:
+    ```bash
+    IMAGE_DRIVER=gd
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Queue System" icon="list-check" href="/advanced/queues">
+    Learn more about queue configuration
+  </Card>
+  <Card title="WebSocket Setup" icon="plug" href="/advanced/websockets">
+    Configure real-time updates
+  </Card>
+</CardGroup>

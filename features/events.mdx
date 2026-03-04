@@ -1,0 +1,707 @@
+---
+title: Event Management
+description: Comprehensive event management with activities, registrations, teams, competitions, and status workflows
+---
+
+EduStack Smart provides a full-featured event management system for organizing academic events, competitions, workshops, and activities with registration tracking, team management, and location support.
+
+## Overview
+
+The event management system enables:
+
+- **Event creation and management** with pricing and scheduling
+- **Activity management** within events (competitions, workshops, talks)
+- **User registrations** for events and activities
+- **Team management** for collaborative activities
+- **Competition support** with rounds and participant limits
+- **Location tracking** with latitude/longitude coordinates
+- **Online/offline modes** for activities
+- **Status workflow** (draft, upcoming, open, closed, ongoing, finished, canceled)
+- **Rich content editing** with structured data
+- **Logo and banner images** with optimization
+
+## Technology Stack
+
+- **Spatie MediaLibrary** - Media management and image processing
+- **Spatie Sluggable** - URL-friendly slugs
+- **Amazon S3** - Cloud storage for media
+- **Leaflet** - Interactive maps for location selection
+- **FullCalendar** - Event calendar visualization
+- **Image optimization** - Automatic responsive images
+
+## Event Model
+
+The Event model includes comprehensive fields for event management:
+
+```php
+// app/Models/Event.php
+class Event extends Model implements HasMedia
+{
+    use HasSlug, InteractsWithMedia;
+
+    protected $fillable = [
+        'name',
+        'slug',
+        'summary',
+        'content',
+        'is_free',
+        'price',
+        'percent_off',
+        'location',
+        'lat',
+        'lng',
+        'registration_started_at',
+        'registration_ended_at',
+        'start_date',
+        'end_date',
+        'is_published',
+        'user_id',
+        'event_status_id',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'content' => 'array',
+            'is_free' => 'boolean',
+            'price' => 'float',
+            'percent_off' => 'float',
+            'is_published' => 'boolean',
+            'lat' => 'float',
+            'lng' => 'float',
+            'registration_started_at' => 'datetime:Y-m-d H:i:s',
+            'registration_ended_at' => 'datetime:Y-m-d H:i:s',
+            'start_date' => 'date:Y-m-d',
+            'end_date' => 'date:Y-m-d',
+        ];
+    }
+}
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Event title |
+| `slug` | string | URL-friendly identifier (auto-generated) |
+| `summary` | string | Brief description (min 100 characters) |
+| `content` | array | Structured rich content (JSON) |
+| `is_free` | boolean | Whether event is free |
+| `price` | float | Event registration price |
+| `percent_off` | float | Discount percentage (0-100) |
+| `location` | string | Event location name |
+| `lat` | float | Latitude coordinate (-90 to 90) |
+| `lng` | float | Longitude coordinate (-180 to 180) |
+| `registration_started_at` | datetime | When registration opens |
+| `registration_ended_at` | datetime | When registration closes |
+| `start_date` | date | Event start date |
+| `end_date` | date | Event end date |
+| `is_published` | boolean | Public visibility |
+| `user_id` | integer | Event organizer |
+| `event_status_id` | integer | Current status |
+
+## Event Activities
+
+Events contain multiple activities (competitions, workshops, talks):
+
+```php
+// app/Models/EventActivity.php
+class EventActivity extends Model implements HasMedia
+{
+    use HasSlug, InteractsWithMedia;
+
+    protected $fillable = [
+        'name',
+        'slug',
+        'summary',
+        'content',
+        'requirements',
+        'is_online',
+        'online_link',
+        'location',
+        'lat',
+        'lng',
+        'is_a_team_event',
+        'is_a_full_team_event',
+        'min_team_size',
+        'max_team_size',
+        'max_participants',
+        'only_students',
+        'is_competition',
+        'participants_per_round',
+        'is_published',
+        'started_at',
+        'ended_at',
+        'event_id',
+        'event_activity_type_id',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'content' => 'array',
+            'is_online' => 'boolean',
+            'lat' => 'float',
+            'lng' => 'float',
+            'is_a_team_event' => 'boolean',
+            'is_a_full_team_event' => 'boolean',
+            'only_students' => 'boolean',
+            'is_competition' => 'boolean',
+            'is_published' => 'boolean',
+            'started_at' => 'datetime',
+            'ended_at' => 'datetime',
+        ];
+    }
+}
+```
+
+### Activity Features
+
+**Team Support:**
+
+- `is_a_team_event` - Whether teams are allowed
+- `is_a_full_team_event` - Whether full team participation is required
+- `min_team_size` - Minimum team members
+- `max_team_size` - Maximum team members
+
+**Competition Mode:**
+
+- `is_competition` - Enable competition features
+- `participants_per_round` - Limit participants per round
+- `max_participants` - Overall participant limit
+
+**Location Options:**
+
+- `is_online` - Virtual activity
+- `online_link` - Meeting/streaming URL
+- `location`, `lat`, `lng` - Physical location
+
+**Restrictions:**
+
+- `only_students` - Restrict to student role
+
+## Event Status Workflow
+
+Events follow a lifecycle through multiple statuses:
+
+```php
+// app/Models/EventStatus.php
+class EventStatus extends Model
+{
+    // Statuses: draft, upcoming, open, closed, ongoing, finished, canceled
+}
+```
+
+**Status Flow:**
+
+1. **Draft** - Initial creation, not visible publicly
+2. **Upcoming** - Published, before registration opens
+3. **Open** - Registration period active
+4. **Closed** - Registration ended, event not started
+5. **Ongoing** - Event in progress
+6. **Finished** - Event completed
+7. **Canceled** - Event canceled
+
+**Automatic Status Logic:**
+
+```php
+// app/Models/Event.php (commented out but shows intended logic)
+public function getRealStatusId()
+{
+    $now = now();
+    $statuses = EventStatus::all()->pluck('id', 'slug');
+
+    // Manual statuses remain unchanged
+    if (in_array($statusId, [
+        $statuses['draft'], 
+        $statuses['finished'], 
+        $statuses['canceled']
+    ])) {
+        return -1; // Don't override
+    }
+
+    if ($now->lt($this->registration_started_at)) {
+        return $statuses['upcoming'];
+    }
+
+    if ($now->between(
+        $this->registration_started_at, 
+        $this->registration_ended_at
+    )) {
+        return $statuses['open'];
+    }
+
+    if ($now->gt($this->registration_ended_at) && 
+        $now->lt($this->start_date)) {
+        return $statuses['closed'];
+    }
+
+    if ($now->between($this->start_date, $this->end_date)) {
+        return $statuses['ongoing'];
+    }
+
+    return $statuses['finished'];
+}
+```
+
+## Event Creation Workflow
+
+### Step 1: Basic Event Information
+
+Events are created with comprehensive metadata:
+
+```php
+// app/Http/Controllers/Member/Event/EventController.php
+public function store(Request $request)
+{
+    $data = $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'logo' => ['required', 'image', 'mimes:jpg,png,jpeg,webp'],
+        'summary' => ['required', 'string', 'min:100'],
+        'is_free' => ['required', 'boolean'],
+        'price' => ['required_if_declined:is_free', 'numeric', 'min:0'],
+        'percent_off' => ['required_if_declined:is_free', 'numeric', 'min:0', 'max:100'],
+        'location' => ['required', 'string', 'max:255'],
+        'lat' => ['required', 'numeric', 'min:-90', 'max:90'],
+        'lng' => ['required', 'numeric', 'min:-180', 'max:180'],
+        'registration_started_at' => ['required', 'date', 'after:now'],
+        'registration_ended_at' => ['required', 'date', 'after:registration_started_at', 'before:start_date'],
+        'start_date' => ['required', 'date', 'after:registration_ended_at', 'before:end_date'],
+        'end_date' => ['required', 'date', 'after:start_date'],
+    ]);
+
+    $event = $request->user()->events()->create([
+        'name' => $data['name'],
+        'summary' => $data['summary'],
+        'content' => [],
+        'is_free' => $data['is_free'],
+        'price' => $data['is_free'] ? 0 : $data['price'],
+        'percent_off' => $data['is_free'] ? 0 : $data['percent_off'],
+        'location' => $data['location'],
+        'lat' => $data['lat'],
+        'lng' => $data['lng'],
+        'registration_started_at' => $data['registration_started_at'],
+        'registration_ended_at' => $data['registration_ended_at'],
+        'start_date' => $data['start_date'],
+        'end_date' => $data['end_date'],
+        'event_status_id' => 1, // Draft
+    ]);
+
+    $event->addMediaFromRequest('logo')
+        ->toMediaCollection('logo');
+
+    return redirect()->intended(route(
+        'events.content.edit',
+        ['event' => $event, 'edit' => false]
+    ));
+}
+```
+
+**Required Fields:**
+
+- Event name
+- Logo image
+- Summary (minimum 100 characters)
+- Pricing information (free or paid)
+- Location with coordinates
+- Registration period (start/end)
+- Event dates (start/end)
+
+**Date Validation Rules:**
+
+- Registration start must be in the future
+- Registration end must be after registration start
+- Event start must be after registration end
+- Event end must be after event start
+- Activities must be within event date range
+
+**Frontend Implementation:**
+
+```tsx
+// resources/js/pages/member/events/create-event.tsx
+const initialValues: EventFormData = {
+    name: '',
+    logo: [],
+    summary: '',
+    is_free: false,
+    price: 0,
+    percent_off: 0,
+    latLng: new LatLng(0, 0),
+    location: '',
+    start_date: new Date(),
+    end_date: new Date(),
+    registration_ended_at: new Date(),
+    registration_started_at: new Date(),
+}
+
+const handleCreateEvent: SubmitHandler<EventFormData> = 
+    ({ latLng, start_date, end_date, ...data }) => {
+    const formData = {
+        ...data,
+        logo: data.logo[0],
+        lat: latLng.lat,
+        lng: latLng.lng,
+        start_date: start_date.toISOString().split('T')[0],
+        end_date: end_date.toISOString().split('T')[0],
+    };
+
+    router.post(events.store(), formData, {
+        preserveScroll: true,
+        showProgress: true,
+        forceFormData: true,
+    })
+}
+```
+
+### Step 2: Rich Content Editing
+
+After creation, users edit structured content:
+
+```php
+// app/Http/Controllers/Member/Event/EventContentController.php
+public function edit(Event $event, Request $request)
+{
+    $edit = $request->boolean('edit', false);
+    return inertia('member/events/event-content', [
+        'event' => $event,
+        'edit' => $edit,
+    ]);
+}
+
+public function update(Event $event, Request $request)
+{
+    $data = $request->validate([
+        'content' => ['required', 'array'],
+        'content.*.props' => ['required', 'array'],
+        'content.*.type' => ['required', 'string'],
+    ]);
+
+    $event->content = $data['content'];
+    $event->save();
+
+    return back()->with('message', 'Contenido guardado correctamente.');
+}
+```
+
+## Event Registrations
+
+Users can register for events:
+
+```php
+// app/Models/EventRegistration.php
+class EventRegistration extends Model
+{
+    protected $fillable = [
+        'event_id',
+        'user_id',
+    ];
+}
+```
+
+**Registration Features:**
+
+- Track which users registered for which events
+- Registration period enforcement
+- Prevent duplicate registrations
+- Activity-specific registrations via `EventActivityRegistration`
+
+## Activity Registrations
+
+Users register for specific activities within events:
+
+```php
+// app/Models/EventActivityRegistration.php
+class EventActivityRegistration extends Model
+{
+    protected $fillable = [
+        'user_id',
+        'event_activity_id'
+    ];
+}
+```
+
+## Team Management
+
+Activities support team-based participation:
+
+```php
+// app/Models/EventActivityTeam.php
+class EventActivityTeam extends Model
+{
+    protected $fillable = [
+        'name',
+        'description',
+        'event_activity_id',
+    ];
+}
+```
+
+**Team Features:**
+
+- Create teams for activities
+- Team size limits (min/max)
+- Full team vs partial team events
+- Team member management via `EventActivityTeamMember`
+
+## Media Management
+
+### Event Logo
+
+```php
+// app/Models/Event.php
+public function registerMediaCollections(): void
+{
+    $this->addMediaCollection('logo')
+        ->useDisk('s3')
+        ->singleFile();
+}
+
+public function registerMediaConversions(?Media $media = null): void
+{
+    $this->addMediaConversion('thumbnail')
+        ->fit(Fit::Crop, 1080, 1080)
+        ->quality(85)
+        ->sharpen(10)
+        ->withResponsiveImages();
+}
+```
+
+**Logo Specifications:**
+
+- Single file per event
+- Square thumbnail (1080x1080)
+- S3 storage
+- Responsive images
+
+### Activity Banner
+
+```php
+// app/Models/EventActivity.php
+public function registerMediaCollections(): void
+{
+    $this->addMediaCollection('banner_image')
+        ->useDisk('s3')
+        ->singleFile();
+}
+
+public function registerMediaConversions(?Media $media = null): void
+{
+    $this->addMediaConversion('banner')
+        ->fit(Fit::Crop, 1920, 1080)
+        ->quality(85)
+        ->sharpen(10)
+        ->withResponsiveImages();
+}
+```
+
+**Banner Specifications:**
+
+- Single file per activity
+- 16:9 aspect ratio (1920x1080)
+- S3 storage
+- Responsive images
+
+## Editing Events
+
+```php
+// app/Http/Controllers/Member/Event/EventController.php
+public function update(Request $request, Event $event)
+{
+    $data = $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'logo' => ['nullable', 'image', 'mimes:jpg,png,jpeg,webp'],
+        'summary' => ['required', 'string', 'min:100'],
+        'is_free' => ['required', 'boolean'],
+        'price' => ['required_if_declined:is_free', 'numeric', 'min:0'],
+        'percent_off' => ['required_if_declined:is_free', 'numeric', 'min:0', 'max:100'],
+        'location' => ['required', 'string', 'max:255'],
+        'lat' => ['required', 'numeric', 'min:-90', 'max:90'],
+        'lng' => ['required', 'numeric', 'min:-180', 'max:180'],
+        'registration_started_at' => ['required', 'date'],
+        'registration_ended_at' => ['required', 'date', 'after:registration_started_at', 'before:start_date'],
+        'start_date' => ['required', 'date', 'after:registration_ended_at'],
+        'end_date' => ['required', 'date', 'after:start_date'],
+    ]);
+
+    // Validate activities are within event date range
+    $activitiesOutOfRange = $event->activities()
+        ->where('started_at', '<', $data['start_date'])
+        ->orWhere('ended_at', '>', $data['end_date'])
+        ->exists();
+
+    if ($activitiesOutOfRange) {
+        throw ValidationException::withMessages([
+            'start_date' => 'Las fachas del evento no pueden estar fuera del rango de fechas de las actividades.',
+        ]);
+    }
+
+    $event->update($data);
+
+    if ($request->hasFile('logo')) {
+        $event->clearMediaCollection('logo');
+        $event->addMediaFromRequest('logo')
+            ->toMediaCollection('logo');
+    }
+
+    return back()->with('message', 'Evento actualizado correctamente');
+}
+```
+
+**Update Validation:**
+
+- Ensures all activities fit within event date range
+- Validates date sequence
+- Handles optional logo update
+
+## Event Listing & Search
+
+```php
+// app/Http/Controllers/Member/Event/EventController.php
+public function index(Request $request)
+{
+    $search = $request->string('search', '');
+    $page = $request->integer('page', 1);
+
+    $events = $request->user()
+        ->events()
+        ->when(
+            $search,
+            fn($query, $search) =>
+            $query->where('name', 'like', "%{$search}%")
+        )
+        ->orderBy('id', 'desc')
+        ->paginate(20);
+
+    return Inertia::render('member/events/events', [
+        'events' => new EventCollection($events),
+        'search' => $search,
+        'page' => $page,
+    ]);
+}
+```
+
+**Features:**
+
+- Search by event name
+- Pagination (20 per page)
+- Sorted by newest first
+
+## Viewing Events
+
+```php
+public function show(Event $event, Request $request)
+{
+    return Inertia::render('member/events/show-event', [
+        'event' => (new EventCollection([
+            $event->load(['activities', 'author', 'media'])
+        ]))->first(),
+    ]);
+}
+```
+
+**Displayed Information:**
+
+- Event details (name, summary, content)
+- Pricing information
+- Location with map
+- Registration and event dates
+- Logo
+- Associated activities
+- Organizer information
+- Status
+
+## Deleting Events
+
+```php
+public function destroy(Event $event)
+{
+    $event->clearMediaCollection('logo');
+    $event->delete();
+
+    return back()->with('message', 'Evento eliminado correctamente.');
+}
+```
+
+**Deletion Process:**
+
+1. Remove logo from S3
+2. Delete database record
+3. Cascade delete activities, registrations, teams
+
+## Model Relationships
+
+```php
+// app/Models/Event.php
+public function author()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
+public function activities()
+{
+    return $this->hasMany(EventActivity::class);
+}
+
+public function status()
+{
+    return $this->belongsTo(EventStatus::class, 'event_status_id');
+}
+```
+
+**Relationship Structure:**
+
+- **Author** - belongs to User (organizer)
+- **Activities** - has many EventActivity
+- **Status** - belongs to EventStatus
+- **Registrations** - has many EventRegistration
+- **Media** - polymorphic relationship for logo
+
+## Route Configuration
+
+All event routes require authentication and member role:
+
+```php
+// routes/roles/member.php
+Route::middleware([
+    'auth',
+    'verified',
+    'active',
+    'role:member|admin'
+])->group(function () {
+    Route::resource('events', EventController::class);
+    
+    Route::get('events/{event}/content/edit', 
+        [EventContentController::class, 'edit'])
+        ->name('events.content.edit');
+        
+    Route::patch('events/{event}/content', 
+        [EventContentController::class, 'update'])
+        ->name('events.content.update');
+        
+    Route::patch('events/{event}/status', EventStatusController::class)
+        ->name('events.status');
+});
+```
+
+## Frontend Pages
+
+The event system includes React pages built with Inertia.js:
+
+- **`events.tsx`** - Event listing with search
+- **`create-event.tsx`** - Event creation form with map
+- **`edit-event.tsx`** - Event editing form
+- **`show-event.tsx`** - Event detail view
+- **`event-content.tsx`** - Rich content editor
+
+**Key Frontend Features:**
+
+- Leaflet maps for location selection
+- FullCalendar for event visualization
+- Date pickers with validation
+- React Hook Form for form management
+
+## Related Documentation
+
+- [Role-Based Access Control](/features/rbac)
+- [Media Processing](/advanced/media-processing)
+- [Blog Management](/features/blog)

@@ -1,0 +1,506 @@
+---
+title: Project Management
+description: Full-featured project management with SemVer versioning, collaborators, and status tracking
+---
+
+EduStack Smart provides a comprehensive project management system for students, teachers, and members to showcase their technical work with complete version control and collaboration features.
+
+## Overview
+
+The project management system enables:
+
+- **Project creation and management** with rich metadata
+- **SemVer versioning** for release tracking
+- **Collaborator management** for team projects
+- **Screenshot galleries** with optimized image processing
+- **Publish/draft status** control
+- **Featured project** highlighting
+- **Rich content editing** with structured data
+
+## Technology Stack
+
+- **Spatie MediaLibrary** - Media management and image processing
+- **Spatie Sluggable** - URL-friendly slugs
+- **Amazon S3** - Cloud storage for screenshots
+- **Image optimization** - Automatic responsive images
+
+## Project Model
+
+The Project model includes comprehensive fields for technical documentation:
+
+```php
+// app/Models/Project.php
+class Project extends Model implements HasMedia
+{
+    use HasSlug, InteractsWithMedia;
+
+    protected $fillable = [
+        'name',
+        'slug',
+        'summary',
+        'content',
+        'repository_url',
+        'demo_url',
+        'tech_stack',
+        'version',
+        'license',
+        'is_featured',
+        'is_published',
+        'published_at',
+        'user_id'
+    ];
+
+    public function casts(): array
+    {
+        return [
+            'content' => 'array',
+            'tech_stack' => 'array',
+            'is_featured' => 'boolean',
+            'is_published' => 'boolean',
+        ];
+    }
+}
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Project title |
+| `slug` | string | URL-friendly identifier (auto-generated) |
+| `summary` | string | Brief description (min 100 characters) |
+| `content` | array | Structured rich content (JSON) |
+| `repository_url` | string | Git repository URL |
+| `demo_url` | string | Live demo URL |
+| `tech_stack` | array | Technologies used |
+| `version` | string | SemVer version (e.g., 1.2.3) |
+| `license` | string | Software license (MIT, GPL, etc.) |
+| `is_featured` | boolean | Featured on homepage |
+| `is_published` | boolean | Public visibility |
+| `published_at` | datetime | Publication timestamp |
+| `user_id` | integer | Project owner |
+
+## Creating Projects
+
+Projects are created through a multi-step process:
+
+### Step 1: Basic Information
+
+```php
+// app/Http/Controllers/User/Project/ProjectController.php
+public function store(Request $request)
+{
+    $data = $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'summary' => ['required', 'string', 'min:100'],
+        'images' => ['required', 'array', 'min:1', 'max:20'],
+        'images.*' => ['required', 'image', 'mimes:jpg,png,jpeg,webp'],
+        'repository_url' => ['required', 'url', 'max:255'],
+        'demo_url' => ['required', 'url', 'max:255'],
+        'tech_stack' => ['array', 'required', 'min:1'],
+        'tech_stack.*' => ['required', 'string', 'max:255'],
+        'version' => ['required', 'string', 'max:255'],
+        'license' => ['required', 'string', 'max:255'],
+    ]);
+
+    $images = $request->file('images');
+
+    $project = $request->user()->projects()->create([
+        'name' => $data['name'],
+        'summary' => $data['summary'],
+        'content' => [],
+        'repository_url' => $data['repository_url'],
+        'demo_url' => $data['demo_url'],
+        'tech_stack' => $data['tech_stack'],
+        'version' => $data['version'],
+        'license' => $data['license'],
+    ]);
+
+    foreach ($images as $file) {
+        $project->addMedia($file)
+            ->toMediaCollection('screenshots');
+    }
+
+    return redirect()->intended(route(
+        'projects.content.edit',
+        ['project' => $project, 'edit' => false]
+    ));
+}
+```
+
+**Required Fields:**
+
+- Project name
+- Summary (minimum 100 characters)
+- At least 1 screenshot (max 20)
+- Repository URL
+- Demo URL
+- At least 1 technology in tech stack
+- Version (SemVer format recommended)
+- License type
+
+### Step 2: Rich Content Editing
+
+After creation, users are redirected to the content editor:
+
+```php
+Route::get('projects/{project}/content/edit', [ProjectContentController::class, 'edit'])
+    ->name('projects.content.edit');
+
+Route::patch('projects/{project}/content', [ProjectContentController::class, 'update'])
+    ->name('projects.content.update');
+```
+
+The content editor allows structured documentation with rich formatting.
+
+## SemVer Versioning
+
+Projects use Semantic Versioning (SemVer) for release tracking:
+
+### Version Format
+
+```
+MAJOR.MINOR.PATCH
+```
+
+- **MAJOR** - Breaking changes
+- **MINOR** - New features (backward compatible)
+- **PATCH** - Bug fixes
+
+### Example Versions
+
+- `1.0.0` - Initial release
+- `1.1.0` - Added new feature
+- `1.1.1` - Bug fix
+- `2.0.0` - Breaking change
+
+### Updating Versions
+
+```php
+// app/Http/Controllers/User/Project/ProjectController.php
+public function update(Request $request, Project $project)
+{
+    $data = $request->validate([
+        'version' => ['required', 'string', 'max:255'],
+        // Other fields...
+    ]);
+
+    $project->version = $data['version'];
+    $project->save();
+
+    return back()->with('message', 'Proyecto actualizado correctamente.');
+}
+```
+
+## Collaborator Management
+
+Projects support team collaboration with multiple contributors:
+
+### Collaborator Model Relationship
+
+```php
+// app/Models/Project.php
+public function author()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
+public function collaborators()
+{
+    return $this->belongsToMany(User::class, 'project_collaborators', 'project_id', 'user_id')
+        ->withPivot('id');
+}
+```
+
+### Adding Collaborators
+
+```php
+// app/Http/Controllers/User/Project/ProjectCollaboratorsController.php
+public function store(Project $project, Request $request)
+{
+    $data = $request->validate([
+        'user_id' => ['required', 'exists:users,id'],
+    ]);
+
+    $collaborationExists = $project->collaborators()
+        ->wherePivot('user_id', '=', $data['user_id'])
+        ->exists();
+
+    if ($collaborationExists) {
+        throw ValidationException::withMessages([
+            'user_id' => 'El colaborador ya pertenece al proyecto.',
+        ]);
+    }
+
+    $project->collaborators()->attach($data['user_id']);
+    return back()->with('message', 'Colaborador agregado correctamente.');
+}
+```
+
+### Removing Collaborators
+
+```php
+public function destroy(Project $project, ProjectCollaborator $projectCollaborator)
+{
+    $projectCollaborator->delete();
+    return back()->with('message', 'Colaborador eliminado correctamente.');
+}
+```
+
+### Collaborator Management UI
+
+```php
+public function index(Project $project, Request $request)
+{
+    $users = User::whereNot('id', '=', $request->user()->id)
+        ->when($search, fn($query, $search) =>
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('father_last_name', 'like', "%{$search}%")
+                    ->orWhere('mother_last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            })
+        )
+        ->orderBy('id', 'desc')
+        ->paginate(20);
+
+    return Inertia::render('user/projects/project-collaborators', [
+        'users' => $users,
+        'project' => $project->load('collaborators'),
+    ]);
+}
+```
+
+**Features:**
+
+- Search users by name or email
+- Add/remove collaborators
+- View all project collaborators
+- Prevent duplicate collaborators
+
+## Screenshot Management
+
+Projects include a media gallery for screenshots:
+
+### Media Collection Configuration
+
+```php
+// app/Models/Project.php
+public function registerMediaCollections(): void
+{
+    $this->addMediaCollection('screenshots')
+        ->useDisk('s3');
+}
+
+public function registerMediaConversions(?Media $media = null): void
+{
+    $this->addMediaConversion('screenshot')
+        ->fit(Fit::Crop, 1920, 1080)
+        ->quality(85)
+        ->sharpen(10)
+        ->withResponsiveImages();
+}
+```
+
+**Image Processing:**
+
+- **Storage:** Amazon S3
+- **Format:** JPG, PNG, JPEG, WebP
+- **Dimensions:** 1920x1080 (Full HD)
+- **Quality:** 85%
+- **Optimization:** Automatic sharpening and responsive images
+- **Limit:** 20 screenshots per project
+
+### Adding Screenshots
+
+```php
+// app/Http/Controllers/User/Project/ProjectScreenshotsController.php
+Route::post('projects/{project}/medias', [ProjectScreenshotsController::class, 'store'])
+    ->name('projects.medias.store');
+```
+
+### Removing Screenshots
+
+```php
+Route::delete('projects/{project}/medias/{media}', [ProjectScreenshotsController::class, 'destroy'])
+    ->name('projects.medias.destroy');
+```
+
+## Status Management
+
+Projects have publish/draft status control:
+
+### Publishing Projects
+
+```php
+Route::patch('projects/{project}/status', ProjectStatusController::class)
+    ->name('projects.status');
+```
+
+**Status Options:**
+
+- **Draft** - Only visible to owner and collaborators
+- **Published** - Publicly visible on the platform
+- **Featured** - Highlighted on homepage (requires admin approval)
+
+### Featured Projects
+
+Administrators can mark projects as featured:
+
+```php
+$project->is_featured = true;
+$project->save();
+```
+
+Featured projects appear prominently on the public homepage.
+
+## Project Listing
+
+Users can view and search their projects:
+
+```php
+// app/Http/Controllers/User/Project/ProjectController.php
+public function index(Request $request)
+{
+    $search = $request->string('search', '');
+    $page = $request->integer('page', 1);
+
+    $projects = $request->user()
+        ->projects()
+        ->when($search, fn($query, $search) =>
+            $query->where('name', 'like', "%{$search}%")
+        )
+        ->with(['media'])
+        ->orderBy('id', 'desc')
+        ->paginate(20);
+
+    return Inertia::render('user/projects/projects', [
+        'projects' => new ProjectCollection($projects),
+        'search' => $search,
+        'page' => $page,
+    ]);
+}
+```
+
+**Features:**
+
+- Search by project name
+- Pagination (20 per page)
+- Sorted by newest first
+- Includes screenshot thumbnails
+
+## Viewing Projects
+
+```php
+public function show(Project $project)
+{
+    return Inertia::render('user/projects/show-project', [
+        'project' => (new ProjectCollection([
+            $project->load(['collaborators', 'author', 'media'])
+        ]))->first(),
+    ]);
+}
+```
+
+**Displayed Information:**
+
+- Project details (name, summary, content)
+- Version and license
+- Repository and demo links
+- Technology stack
+- Screenshot gallery
+- Owner and collaborators
+- Publication status
+
+## Editing Projects
+
+```php
+public function update(Request $request, Project $project)
+{
+    $data = $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'summary' => ['required', 'string', 'min:100'],
+        'repository_url' => ['required', 'url', 'max:255'],
+        'demo_url' => ['required', 'url', 'max:255'],
+        'tech_stack' => ['array', 'required', 'min:1'],
+        'tech_stack.*' => ['required', 'string', 'max:255'],
+        'version' => ['required', 'string', 'max:255'],
+        'license' => ['required', 'string', 'max:255'],
+    ]);
+
+    $project->update($data);
+    return back()->with('message', 'Proyecto actualizado correctamente.');
+}
+```
+
+## Deleting Projects
+
+```php
+public function destroy(Project $project)
+{
+    $project->clearMediaCollection('screenshots');
+    $project->delete();
+
+    return back()->with('message', 'Proyecto eliminado correctamente.');
+}
+```
+
+**Deletion Process:**
+
+1. Remove all screenshots from S3
+2. Delete database record
+3. Cascade delete collaborator relationships
+
+## Route Configuration
+
+All project routes require authentication and student+ role:
+
+```php
+// routes/roles/student.php
+Route::middleware([
+    'auth',
+    'verified',
+    'active',
+    'role:student|admin|member|teacher'
+])->group(function () {
+    Route::resource('projects', ProjectController::class);
+    
+    Route::get('projects/{project}/content/edit', 
+        [ProjectContentController::class, 'edit'])
+        ->name('projects.content.edit');
+        
+    Route::patch('projects/{project}/content', 
+        [ProjectContentController::class, 'update'])
+        ->name('projects.content.update');
+        
+    Route::resource('projects/{project}/project-collaborators', 
+        ProjectCollaboratorsController::class)
+        ->only(['index', 'store', 'destroy']);
+        
+    Route::patch('projects/{project}/status', ProjectStatusController::class)
+        ->name('projects.status');
+        
+    Route::post('projects/{project}/medias', 
+        [ProjectScreenshotsController::class, 'store'])
+        ->name('projects.medias.store');
+        
+    Route::delete('projects/{project}/medias/{media}', 
+        [ProjectScreenshotsController::class, 'destroy'])
+        ->name('projects.medias.destroy');
+});
+```
+
+## API Resources
+
+Projects are formatted for frontend consumption:
+
+```php
+// app/Http/Resources/ProjectResource.php
+// app/Http/Resources/ProjectCollection.php
+```
+
+## Related Documentation
+
+- [Role-Based Access Control](/features/rbac)
+- [Media Processing](/advanced/media-processing)
+- [Teacher Guide](/guides/teacher)

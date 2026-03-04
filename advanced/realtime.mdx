@@ -1,0 +1,306 @@
+---
+title: 'Real-time Communication'
+description: 'Learn how EduStack Smart uses Laravel Reverb for real-time event broadcasting and WebSocket communication'
+icon: 'wave-pulse'
+---
+
+## Overview
+
+EduStack Smart implements real-time communication using **Laravel Reverb**, a first-party WebSocket server for Laravel applications. This enables instant updates for media processing, notifications, and collaborative features.
+
+## Architecture
+
+The real-time system consists of three main components:
+
+1. **Laravel Reverb Server** - WebSocket server for broadcasting events
+2. **Server-side Events** - Laravel events that implement `ShouldBroadcast`
+3. **Client-side Listeners** - React components using Laravel Echo
+
+
+
+## Broadcasting Configuration
+
+The broadcasting system is configured in `config/broadcasting.php`:
+
+```php config/broadcasting.php
+return [
+    'default' => env('BROADCAST_CONNECTION', 'null'),
+    
+    'connections' => [
+        'reverb' => [
+            'driver' => 'reverb',
+            'key' => env('REVERB_APP_KEY'),
+            'secret' => env('REVERB_APP_SECRET'),
+            'app_id' => env('REVERB_APP_ID'),
+            'options' => [
+                'host' => env('REVERB_HOST'),
+                'port' => env('REVERB_PORT', 443),
+                'scheme' => env('REVERB_SCHEME', 'https'),
+                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+            ],
+        ],
+    ],
+];
+```
+
+### Environment Variables
+
+Configure these variables in your `.env` file:
+
+```bash
+BROADCAST_CONNECTION=reverb
+REVERB_APP_ID=your-app-id
+REVERB_APP_KEY=your-app-key
+REVERB_APP_SECRET=your-app-secret
+REVERB_HOST=localhost
+REVERB_PORT=8080
+REVERB_SCHEME=http
+```
+
+## Channel Authorization
+
+Private and presence channels require authorization, defined in `routes/channels.php`:
+
+```php routes/channels.php
+use App\Models\{Event, Post, Project};
+use Illuminate\Support\Facades\Broadcast;
+
+// User private channel
+Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+});
+
+// Post channel - only post author can listen
+Broadcast::channel('post.{id}', function ($user, $id) {
+    return (int) $user->id === (int) Post::find($id)->user_id;
+});
+
+// Project channel - only project author can listen
+Broadcast::channel('project.{id}', function ($user, $id) {
+    return (int) $user->id === (int) Project::find($id)->user_id;
+});
+
+// Event channel - only event organizer can listen
+Broadcast::channel('event.{id}', function ($user, $id) {
+    return (int) $user->id === (int) Event::find($id)->user_id;
+});
+```
+
+<Note>
+Channel authorization runs on every subscription attempt. Keep the logic lightweight and avoid complex database queries.
+</Note>
+
+## Broadcasting Events
+
+### Creating a Broadcastable Event
+
+Events that should be broadcast implement the `ShouldBroadcast` interface:
+
+```php app/Events/MediaProcessed.php
+namespace App\Events;
+
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class MediaProcessed implements ShouldBroadcast
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public function __construct(
+        public $model_id,
+        public $model_type
+    ) {}
+
+    /**
+     * Get the channels the event should broadcast on.
+     */
+    public function broadcastOn(): array
+    {
+        return [
+            new PrivateChannel($this->model_type . '.' . $this->model_id),
+        ];
+    }
+
+    /**
+     * Get the data to broadcast.
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'id' => $this->model_id,
+            'type' => $this->model_type,
+            'message' => 'Procesamiento de ' . $this->model_type . ' completado.',
+        ];
+    }
+}
+```
+
+### Dispatching Events
+
+Events are dispatched anywhere in your application:
+
+```php
+use App\Events\MediaProcessed;
+
+// After media processing completes
+event(new MediaProcessed($post->id, 'post'));
+```
+
+## Channel Types
+
+### Public Channels
+
+Public channels don't require authentication:
+
+```php
+public function broadcastOn(): array
+{
+    return [new Channel('public-announcements')];
+}
+```
+
+### Private Channels
+
+Private channels require user authentication:
+
+```php
+public function broadcastOn(): array
+{
+    return [new PrivateChannel('post.' . $this->postId)];
+}
+```
+
+### Presence Channels
+
+Presence channels track which users are subscribed:
+
+```php
+public function broadcastOn(): array
+{
+    return [new PresenceChannel('project.' . $this->projectId)];
+}
+```
+
+## Client-Side Integration
+
+See [WebSocket Setup](/advanced/websockets) for detailed client-side implementation using React and Laravel Echo.
+
+## Running the Reverb Server
+
+### Development
+
+Start the Reverb server in development:
+
+```bash
+php artisan reverb:start
+```
+
+For debugging, use the `--debug` flag:
+
+```bash
+php artisan reverb:start --debug
+```
+
+### Production
+
+In production, run Reverb as a background service using a process manager like Supervisor:
+
+```ini
+[program:reverb]
+command=php /path/to/artisan reverb:start
+autostart=true
+autorestart=true
+user=www-data
+redirect_stderr=true
+stdout_logfile=/var/log/reverb.log
+```
+
+## Testing Broadcasting
+
+Test your broadcasting setup using Laravel Tinker:
+
+```bash
+php artisan tinker
+```
+
+```php
+// Dispatch a test event
+event(new \App\Events\MediaProcessed(1, 'post'));
+```
+
+Monitor the Reverb server logs to see the broadcast:
+
+```bash
+php artisan reverb:start --debug
+```
+
+## Performance Considerations
+
+<AccordionGroup>
+  <Accordion title="Connection Scaling">
+    Reverb can handle thousands of concurrent connections. For very large deployments, consider:
+    - Running multiple Reverb instances behind a load balancer
+    - Using Redis for inter-server communication
+    - Implementing connection throttling
+  </Accordion>
+
+  <Accordion title="Message Size">
+    Keep broadcast payloads small:
+    - Only send necessary data (IDs, not full models)
+    - Let clients fetch additional data via API calls
+    - Use efficient serialization
+  </Accordion>
+
+  <Accordion title="Channel Design">
+    Design channels strategically:
+    - Use specific channels instead of broadcasting to all users
+    - Implement proper authorization to prevent unauthorized access
+    - Consider channel naming conventions for easier debugging
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<Warning>
+Common issues and solutions:
+</Warning>
+
+### Connection Refused
+
+```bash
+# Check if Reverb is running
+php artisan reverb:start
+
+# Verify REVERB_HOST and REVERB_PORT in .env
+```
+
+### Authorization Failed
+
+```bash
+# Ensure user is authenticated
+# Check channel authorization logic in routes/channels.php
+# Verify CSRF token is included in requests
+```
+
+### Events Not Broadcasting
+
+```bash
+# Verify BROADCAST_CONNECTION is set correctly
+# Check that event implements ShouldBroadcast
+# Ensure queue workers are running if events are queued
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="WebSocket Setup" icon="plug" href="/advanced/websockets">
+    Configure client-side WebSocket listeners
+  </Card>
+  <Card title="Queue System" icon="list-check" href="/advanced/queues">
+    Learn about async job processing
+  </Card>
+</CardGroup>

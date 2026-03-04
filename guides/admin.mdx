@@ -1,0 +1,188 @@
+---
+title: Administrator Guide
+description: Complete guide for system administrators to manage users, roles, and system settings in EduStack Smart
+---
+
+# Administrator Guide
+
+As an administrator, you have full access to manage users, assign roles, and control system settings in EduStack Smart. This guide will walk you through all administrative tasks.
+
+## Overview
+
+Administrators can:
+- View and search all system users
+- Assign and change user roles
+- Activate or suspend user accounts
+- Access all features available to other roles (teacher, member, student)
+
+## Managing Users
+
+### Accessing the User Management Panel
+
+<Steps>
+  <Step title="Navigate to Users">
+    From the main navigation menu, click on "Usuarios" (Users) to access the user management panel.
+  </Step>
+  
+  <Step title="View User List">
+    You'll see a grid layout displaying all users in the system with their:
+    - Full name (name, father's last name, mother's last name)
+    - Email address
+    - Current role(s) displayed as badges
+  </Step>
+</Steps>
+
+### Searching for Users
+
+The user management panel includes a search bar at the top:
+
+1. Enter any part of a user's name or email
+2. The results update automatically
+3. Use pagination controls at the bottom to navigate through multiple pages
+
+## User Role Management
+
+### Understanding Roles
+
+EduStack Smart has four user roles:
+- **Admin**: Full system access and user management
+- **Teacher**: Can create projects, manage collaborators
+- **Member**: Can create blog posts and events
+- **Student**: Can participate in projects and register for events
+
+### Changing a User's Role
+
+<Steps>
+  <Step title="Open User Menu">
+    On any user card, click the three-dot menu icon (⋯) in the top-right corner.
+  </Step>
+  
+  <Step title="Select Change Role">
+    From the dropdown menu, click "Cambiar Rol" (Change Role).
+  </Step>
+  
+  <Step title="Choose New Role">
+    A modal will appear showing:
+    - The user's current role
+    - All available roles to assign
+    
+    Select the new role from the list.
+  </Step>
+  
+  <Step title="Confirm Change">
+    Click the confirm button to apply the role change. The system will update immediately and display a success message.
+  </Step>
+</Steps>
+
+<Note>
+  Role changes take effect immediately. Users may need to refresh their session to see new permissions.
+</Note>
+
+## User Account Status
+
+### Activating and Suspending Users
+
+Control user access to the system by managing their account status.
+
+<Steps>
+  <Step title="Open User Menu">
+    Click the three-dot menu (⋯) on the user card.
+  </Step>
+  
+  <Step title="Toggle Status">
+    You'll see one of two options:
+    - **Suspender** (Suspend) - shown in red for active users
+    - **Activar** (Activate) - shown in green for suspended users
+  </Step>
+  
+  <Step title="Confirm Action">
+    Click the appropriate option. The system will:
+    - Update the user's status immediately
+    - Display a confirmation message
+    - Update the user card to reflect the new status
+  </Step>
+</Steps>
+
+### What Happens When a User is Suspended
+
+- User cannot log into the system
+- Existing sessions are terminated
+- User's content remains in the system but they cannot edit it
+- User will see an error message when attempting to access the platform
+
+### Reactivating a Suspended User
+
+Follow the same steps above and click "Activar" (Activate). The user will immediately regain access to their account.
+
+## User Information Display
+
+Each user card shows:
+
+- **Name Badge**: Full name with role indicator
+- **Email Address**: User's registered email
+- **Role Badge**: Color-coded label showing current role(s)
+- **Status Indicator**: Visible through menu options (active/suspended)
+
+## Pagination and Navigation
+
+When viewing large numbers of users:
+
+1. **Page Numbers**: Click specific page numbers at the bottom
+2. **Next/Previous**: Use arrow buttons to navigate sequentially
+3. **Results Per Page**: The system displays users in a responsive grid (1-2 columns depending on screen size)
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Regular Audits" icon="shield-check">
+    Periodically review user roles to ensure appropriate access levels
+  </Card>
+  
+  <Card title="Prompt Deactivation" icon="user-xmark">
+    Suspend accounts immediately when users leave the organization
+  </Card>
+  
+  <Card title="Role Verification" icon="user-check">
+    Verify user identity before granting elevated roles (teacher, admin)
+  </Card>
+  
+  <Card title="Search Usage" icon="magnifying-glass">
+    Use the search feature to quickly locate specific users instead of scrolling
+  </Card>
+</CardGroup>
+
+## Administrative Access to Other Features
+
+As an administrator, you also have access to all features from other roles:
+
+- **Project Management**: Create and manage projects like teachers
+- **Blog Posts**: Create and publish blog posts like members
+- **Events**: Create and manage events like members
+- **Project Participation**: Join projects like students
+
+<Tip>
+  See the [Teacher Guide](/guides/teacher), [Member Guide](/guides/member), and [Student Guide](/guides/student) for detailed instructions on these features.
+</Tip>
+
+## Troubleshooting
+
+### User Cannot See Role Changes
+
+**Solution**: Ask the user to log out and log back in to refresh their permissions.
+
+### Cannot Find a Specific User
+
+**Solution**: Use the search bar with different search terms (try email, first name, or last name separately).
+
+### Accidental Role Change
+
+**Solution**: Follow the role change steps again to restore the correct role.
+
+## Security Reminders
+
+<Warning>
+  - Never share admin credentials
+  - Only assign admin role to trusted personnel
+  - Regularly review the list of administrators
+  - Suspend users immediately upon departure from organization
+</Warning>
