@@ -72,27 +72,28 @@ The platform is built on a robust technical foundation:
   The backend follows Clean Architecture principles with a Service Layer Pattern and Event-Driven Architecture for maintainability and scalability.
 </Info>
 
-### Frontend - Public Website
+### Frontend
 
-- **Astro** - Modern SSR framework with Island Architecture
-- **React** - UI components via Astro Islands
-- **TypeScript** - Type-safe JavaScript
-- **View Transitions API** - Smooth page transitions
+- **Inertia.js** - Modern monolithic SPA framework connecting Laravel and React
+- **React 19** - UI library with modern features
+- **TypeScript** - Type-safe JavaScript for better developer experience
+- **Tailwind CSS 4** - Utility-first styling
+- **Vite** - Fast build tool and development server
+
+**Key Libraries:**
+- **Radix UI** - Accessible component primitives
+- **TipTap** - Rich text editor for content management
+- **TanStack Query (React Query)** - Server state management
+- **Zustand** - Client state management
+- **Leaflet** - Interactive maps for events
+- **FullCalendar** - Calendar views for events
+- **Puck** - Page builder capabilities
 
 **Optimizations:**
-- Server-side rendering for SEO and performance
-- Selective hydration for minimal JavaScript
-- Lazy loading of components
-- Minimal JS bundle size
-
-### Frontend - Admin Panel
-
-- **Laravel + Inertia.js + React** - Modern monolithic SPA experience
-- **Radix UI** - Accessible component primitives
-- **Tailwind CSS 4** - Utility-first styling
-- **TipTap** - Rich text editor
-- **React Query** - Server state management
-- **Zustand** - Client state management
+- Server-side rendering via Inertia.js
+- Automatic code splitting
+- Hot module replacement in development
+- Optimized asset bundling with Vite
 
 ## Role-Based Access Control (RBAC)
 
