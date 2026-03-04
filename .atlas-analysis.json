@@ -1,0 +1,116 @@
+{
+  "projectType": "saas",
+  "projectName": "EduStack Smart",
+  "projectDescription": "Enterprise academic platform with AI-powered tutoring, project management, event coordination, and role-based institutional management",
+  "theme": "palm",
+  "primaryColor": "#3b82f6",
+  "lightColor": "#60a5fa",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/backend",
+              "architecture/frontend",
+              "architecture/database"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/rbac",
+              "features/projects",
+              "features/blog",
+              "features/events",
+              "features/ai-tutor"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/setup",
+              "development/environment",
+              "development/running",
+              "development/testing"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/admin",
+              "guides/teacher",
+              "guides/member",
+              "guides/student"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/realtime",
+              "advanced/queues",
+              "advanced/media-processing",
+              "advanced/websockets"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/blog",
+              "api/projects",
+              "api/events",
+              "api/users"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Role-Based Access Control (RBAC) with 5 user roles",
+    "Project Management with SemVer versioning",
+    "Institutional Blog and Event Management",
+    "Local AI Tutor with WebLLM/WebGPU",
+    "Real-time Communication via Laravel Reverb",
+    "Asynchronous Media Processing",
+    "Laravel Sanctum Authentication",
+    "Inertia.js + React Admin Panel"
+  ],
+  "publicApiSurface": [
+    "GET /api/blog - Retrieve blog posts",
+    "GET /api/user - Get authenticated user",
+    "POST /auth/login - Authenticate user",
+    "POST /auth/register - Register new user",
+    "Dashboard - Main application dashboard",
+    "Admin Users Management - /admin/users",
+    "Member Blog Management - /member/blog",
+    "Member Event Management - /member/events",
+    "Project Management - /user/projects",
+    "Settings - User profile, password, 2FA"
+  ]
+}
